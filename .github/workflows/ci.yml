@@ -15,13 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.23.x', 'stable']
+        go: ['1.26.x', '1.27.x']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ matrix.go }}
           check-latest: true
+          cache: false
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
       - name: Test
@@ -29,7 +30,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Race detector
-        if: matrix.go == 'stable'
+        if: matrix.go == '1.27.x'
         run: go test -race -count=1 ./...
 
   cross-build:
@@ -48,10 +49,12 @@ jobs:
           - goos: windows
             goarch: amd64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: stable
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}

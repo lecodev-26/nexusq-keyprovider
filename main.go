@@ -39,13 +39,15 @@ func main() {
 	}
 }
 
+const maxMetadataSize = 1 << 20
+
 func run(input io.Reader, output io.Writer, getenv func(string) string) error {
 	if _, err := fmt.Fprintln(output, `{"magic":"OpenTofu-External-Key-Provider","version":1}`); err != nil {
 		return fmt.Errorf("write protocol header: %w", err)
 	}
-	var meta *Meta
-	if err := json.NewDecoder(io.LimitReader(input, 1<<20)).Decode(&meta); err != nil {
-		return fmt.Errorf("decode OpenTofu metadata: %w", err)
+	meta, err := readMetadata(input)
+	if err != nil {
+		return err
 	}
 	base, err := validateBaseURL(getenv("NEXUSQ_URL"))
 	if err != nil {
@@ -109,6 +111,30 @@ func run(input io.Reader, output io.Writer, getenv func(string) string) error {
 		return fmt.Errorf("encode provider response: %w", err)
 	}
 	return nil
+}
+
+func readMetadata(input io.Reader) (*Meta, error) {
+	data, err := io.ReadAll(io.LimitReader(input, maxMetadataSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read OpenTofu metadata: %w", err)
+	}
+	if len(data) > maxMetadataSize {
+		return nil, fmt.Errorf("OpenTofu metadata exceeds %d-byte limit", maxMetadataSize)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	var meta *Meta
+	if err := decoder.Decode(&meta); err != nil {
+		return nil, fmt.Errorf("decode OpenTofu metadata: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, errors.New("decode OpenTofu metadata: multiple JSON values")
+		}
+		return nil, fmt.Errorf("decode OpenTofu metadata: trailing data: %w", err)
+	}
+	return meta, nil
 }
 
 func validateBaseURL(raw string) (string, error) {

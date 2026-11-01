@@ -177,8 +177,18 @@ func TestRunInitialKeyExchange(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
-	if len(lines) != 2 || !strings.Contains(lines[0], "OpenTofu-External-Key-Provider") {
-		t.Fatalf("unexpected protocol output: %q", output.String())
+	if len(lines) != 2 {
+		t.Fatalf("unexpected protocol output line count: %q", output.String())
+	}
+	var header struct {
+		Magic   string `json:"magic"`
+		Version int    `json:"version"`
+	}
+	if err := json.Unmarshal([]byte(lines[0]), &header); err != nil {
+		t.Fatalf("protocol header is not valid JSON: %v", err)
+	}
+	if header.Magic != "OpenTofu-External-Key-Provider" || header.Version != 1 {
+		t.Fatalf("unexpected protocol header: %#v", header)
 	}
 	var result Result
 	if err := json.Unmarshal([]byte(lines[1]), &result); err != nil {
@@ -256,5 +266,56 @@ func TestRunFailsClosedBeforeReturningKeys(t *testing.T) {
 	}
 	if strings.Contains(output.String(), `"keys"`) {
 		t.Fatalf("provider emitted keys after configuration failure: %q", output.String())
+	}
+}
+
+func TestReadMetadataAcceptsSingleJSONDocument(t *testing.T) {
+	meta, err := readMetadata(strings.NewReader("  null  \n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meta != nil {
+		t.Fatalf("metadata=%#v, want nil", meta)
+	}
+}
+
+func TestReadMetadataRejectsTrailingOrMultipleJSON(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "trailing garbage", input: `null trailing`},
+		{name: "second JSON value", input: `null {}`},
+		{name: "second scalar", input: `null true`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := readMetadata(strings.NewReader(tt.input)); err == nil {
+				t.Fatalf("readMetadata(%q) unexpectedly succeeded", tt.input)
+			}
+		})
+	}
+}
+
+func TestReadMetadataRejectsOversizedInput(t *testing.T) {
+	input := strings.NewReader(`null` + strings.Repeat(" ", maxMetadataSize))
+	if _, err := readMetadata(input); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("err=%v, want metadata size error", err)
+	}
+}
+
+func TestRunRejectsTrailingMetadataBeforeCallingAPI(t *testing.T) {
+	var output bytes.Buffer
+	env := map[string]string{
+		"NEXUSQ_URL":    "https://kms.example.test",
+		"NEXUSQ_TOKEN":  "test-token",
+		"NEXUSQ_KEY_ID": "test-key",
+	}
+	err := run(strings.NewReader(`null {}`), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "multiple JSON values") {
+		t.Fatalf("err=%v, want multiple JSON values", err)
+	}
+	if strings.Contains(output.String(), `"keys"`) {
+		t.Fatalf("provider emitted keys after invalid input: %q", output.String())
 	}
 }

@@ -1,3 +1,3 @@
 module github.com/lecodev-26/nexusq-keyprovider
 
-go 1.23.0
+go 1.26.0

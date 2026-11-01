@@ -47,7 +47,7 @@ A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 
 - Four concurrent local plan processes in independent workspace copies.
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
 
-The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. Local statement coverage was **77%** at the time of this README update.
+The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. Local statement coverage is **79.4%** with the current test suite.
 
 These results describe specific local tests. They do not establish compatibility with production remote backend services, all OpenTofu versions, sustained workloads, or distributed CI environments.
 
@@ -88,7 +88,7 @@ See [DESIGN.md](DESIGN.md) for protocol details, metadata format, trust boundari
 - A reachable NEXUS-Q server.
 - An active NEXUS-Q AES-256-GCM key with purpose `wrap`.
 - An unlocked NEXUS-Q vault while provider operations run.
-- Go 1.23 or newer to build from source.
+- Go 1.26 or newer to build from source.
 
 ## Build and test
 
@@ -211,8 +211,8 @@ Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning dep
 
 GitHub Actions runs:
 
-- Formatting checks, unit tests, and `go vet` on Go 1.23 and the current stable Go release.
-- Go race detection on the stable Go runner.
+- Formatting checks, unit tests, and `go vet` on Go 1.26 and Go 1.27.
+- Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
 
 See the [CI workflow](.github/workflows/ci.yml) for the exact matrix. Cross-build success is not the same as runtime testing on every target platform.

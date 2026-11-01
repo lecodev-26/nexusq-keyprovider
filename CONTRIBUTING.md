@@ -11,7 +11,7 @@ Thanks for your interest in NEXUS-Q Key Provider.
 
 ## Development checks
 
-Use a supported Go toolchain (Go 1.23 or newer):
+Use a supported Go toolchain (Go 1.26 or newer):
 
 ```sh
 gofmt -w .
