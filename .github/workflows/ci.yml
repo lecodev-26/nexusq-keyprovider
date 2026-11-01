@@ -61,3 +61,29 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
         run: go build -trimpath -o /tmp/nexusq-keyprovider .
+
+  e2e:
+    name: OpenTofu E2E (Linux ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: AMD64
+          - runner: ubuntu-24.04-arm
+            arch: ARM64
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false
+      - uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: '1.13.2'
+          tofu_wrapper: false
+      - name: Run end-to-end integration suite
+        run: bash integration/e2e.sh

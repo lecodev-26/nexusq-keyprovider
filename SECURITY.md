@@ -6,7 +6,11 @@ NEXUS-Q Key Provider is experimental software. The current implementation suppor
 
 ## Reporting a vulnerability
 
-Please do not report security vulnerabilities in public issues. Before the repository is made public, the maintainer should enable GitHub private vulnerability reporting or publish a dedicated private contact channel. Until then, do not disclose exploit details publicly; contact the maintainer privately. Include:
+Please do not report security vulnerabilities in public issues. Use GitHub's private vulnerability reporting for this repository:
+
+https://github.com/lecodev-26/nexusq-keyprovider/security/advisories/new
+
+Do not disclose exploit details publicly. Include:
 - A description of the affected component and impact.
 - Reproduction steps or a proof of concept, where safe.
 - Relevant versions and environment details.

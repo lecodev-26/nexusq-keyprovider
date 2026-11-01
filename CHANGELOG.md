@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Enforce a strict 1 MiB limit and a single JSON document for OpenTofu metadata input.
 - Strengthen protocol-header and malformed-input tests.
 - Update GitHub Actions to current major releases and disable unused Go module caching.
+- Add native Linux AMD64/ARM64 OpenTofu E2E automation for encrypted state, saved plans, DEK recovery/rotation, and HTTP-backend persistence using test-only fixtures.
 
 ## [0.1.0] - Unreleased
 

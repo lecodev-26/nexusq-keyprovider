@@ -1,7 +1,7 @@
 # NEXUS-Q Key Provider
 
 [![CI](https://github.com/lecodev-26/nexusq-keyprovider/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lecodev-26/nexusq-keyprovider/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#status)
 
@@ -47,7 +47,7 @@ A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 
 - Four concurrent local plan processes in independent workspace copies.
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
 
-The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. Local statement coverage is **79.4%** with the current test suite.
+The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. The CI E2E suite additionally runs real OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64, using a test-only NEXUS-Q API substitute to exercise state encryption, saved-plan encryption, previous-DEK recovery, rotation, and HTTP-backend persistence from a clean work directory. Local statement coverage is **79.4%** with the current test suite.
 
 These results describe specific local tests. They do not establish compatibility with production remote backend services, all OpenTofu versions, sustained workloads, or distributed CI environments.
 
@@ -205,7 +205,15 @@ Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning dep
 
 ## Integration fixture
 
-`integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. It binds to loopback and is intended only for development/testing. It has no TLS, authentication, or production-grade durability and must not be exposed to a network or used to store real infrastructure state.
+`integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. `integration/mock-nexusq/` provides a test-only API substitute that wraps test DEKs with AES-256-GCM and a fixed fixture key. Both bind to loopback and are intended only for automated development/testing. They do not replace the NEXUS-Q server or validate its implementation, and must not be exposed to a network or used with real infrastructure state or secrets.
+
+Run the automated suite on Linux with Go 1.27+, OpenTofu 1.13.2, Python 3, and `curl`:
+
+```sh
+bash integration/e2e.sh
+```
+
+The script builds the provider and mock API locally, creates temporary state/plan/backend files, and removes its temporary files and fixture processes on exit. It uses loopback ports 18443 and 18444; ensure those ports are available.
 
 ## CI
 
@@ -214,6 +222,7 @@ GitHub Actions runs:
 - Formatting checks, unit tests, and `go vet` on Go 1.26 and Go 1.27.
 - Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
+- OpenTofu 1.13.2 E2E tests on native Linux AMD64 and ARM64 runners, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
 
 See the [CI workflow](.github/workflows/ci.yml) for the exact matrix. Cross-build success is not the same as runtime testing on every target platform.
 

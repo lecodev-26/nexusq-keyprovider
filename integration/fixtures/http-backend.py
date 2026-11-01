@@ -3,9 +3,10 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 import json
+import os
 
-STATE = Path("/tmp/nexusq-http-backend-state.tfstate")
-LOCK = Path("/tmp/nexusq-http-backend-lock.json")
+STATE = Path(os.environ.get("NEXUSQ_HTTP_BACKEND_STATE", "/tmp/nexusq-http-backend-state.tfstate"))
+LOCK = Path(os.environ.get("NEXUSQ_HTTP_BACKEND_LOCK", "/tmp/nexusq-http-backend-lock.json"))
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -20,6 +21,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self):
+        if self.path.split("?", 1)[0] == "/health":
+            return self.send(200, b"http-backend-fixture-ready", "text/plain")
         if self.path.split("?", 1)[0] != "/state":
             return self.send(404)
         if not STATE.exists():
