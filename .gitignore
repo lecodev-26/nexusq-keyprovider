@@ -1,0 +1,12 @@
+# Local build outputs
+/dist/*
+!/dist/.gitkeep
+/build/
+/coverage.out
+*.test
+*.out
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/

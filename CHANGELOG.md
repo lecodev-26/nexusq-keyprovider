@@ -1,0 +1,17 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## Unreleased
+
+- Refactor the provider protocol flow into a testable execution function.
+- Add end-to-end protocol tests for initial key exchange, previous-key recovery, and rotation.
+- Add GitHub Actions CI for Go tests, vet, race detection, and cross-platform builds.
+- Document current source and dependency provenance.
+
+## [0.1.0] - Unreleased
+
+- Initial experimental OpenTofu External Key Provider v1 implementation.
+- NEXUS-Q-backed wrapping and recovery of OpenTofu data-encryption keys.
+- HTTP and protocol validation with fail-closed behavior.
+- Local integration fixtures and operational/security documentation.
