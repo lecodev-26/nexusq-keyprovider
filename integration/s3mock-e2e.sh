@@ -75,6 +75,7 @@ wait_for_mock
 export NEXUSQ_URL="http://127.0.0.1:18443"
 export NEXUSQ_TOKEN="integration-test-token"
 export NEXUSQ_KEY_ID="integration-key-v1"
+export NEXUSQ_CONTEXT_ID="integration-s3-state"
 export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY"
 export AWS_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
 export AWS_DEFAULT_REGION="us-east-1"

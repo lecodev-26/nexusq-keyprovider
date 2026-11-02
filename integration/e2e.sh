@@ -57,6 +57,7 @@ wait_for_mock
 export NEXUSQ_URL="http://127.0.0.1:18443"
 export NEXUSQ_TOKEN="integration-test-token"
 export NEXUSQ_KEY_ID="integration-key-v1"
+export NEXUSQ_CONTEXT_ID="integration-e2e-state"
 export NEXUSQ_HTTP_BACKEND_STATE="$TMP/remote.tfstate"
 export NEXUSQ_HTTP_BACKEND_LOCK="$TMP/remote.lock"
 

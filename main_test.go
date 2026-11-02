@@ -150,33 +150,60 @@ func TestCallDataRejectsEmptyData(t *testing.T) {
 	}
 }
 
+func testEnv(serverURL string) map[string]string {
+	return map[string]string{
+		"NEXUSQ_URL": serverURL, "NEXUSQ_TOKEN": "test-token",
+		"NEXUSQ_KEY_ID": "test-key", "NEXUSQ_CONTEXT_ID": "ctx-alpha",
+	}
+}
+
+func encodeWrappedPayload(t *testing.T, contextID string, dek []byte) string {
+	t.Helper()
+	payload, err := json.Marshal(wrappedDEKPayload{
+		Format: payloadFormat, Version: metadataVersionBound, ContextID: contextID, DEK: dek,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(base64.StdEncoding.EncodeToString(payload)))
+}
+
+func inspectEncryptPayload(t *testing.T, request map[string]string, wantContext string) {
+	t.Helper()
+	if request["key_id"] != "test-key" || request["metadata"] != envelopeMetadataV2 {
+		t.Errorf("unexpected encrypt request: %#v", request)
+	}
+	encoded, err := base64.StdEncoding.DecodeString(request["plaintext"])
+	if err != nil {
+		t.Fatalf("decode plaintext wrapper: %v", err)
+	}
+	var payload wrappedDEKPayload
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatalf("decode wrapped payload: %v", err)
+	}
+	if payload.Format != payloadFormat || payload.Version != metadataVersionBound || payload.ContextID != wantContext || len(payload.DEK) != 32 {
+		t.Errorf("unexpected wrapped payload: format=%q version=%d context=%q dek=%d", payload.Format, payload.Version, payload.ContextID, len(payload.DEK))
+	}
+}
+
 func TestRunInitialKeyExchange(t *testing.T) {
 	var encryptCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer test-token" {
+		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer test-token" || r.URL.Path != "/v1/encrypt" {
 			t.Errorf("unexpected request: %s %s auth=%q", r.Method, r.URL.Path, r.Header.Get("Authorization"))
 		}
-		if r.URL.Path != "/v1/encrypt" {
-			t.Errorf("unexpected path %q", r.URL.Path)
-		}
-		var payload map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		var request map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Errorf("decode request: %v", err)
 		}
-		if payload["key_id"] != "test-key" || payload["metadata"] != "opentofu-external-key-provider-v1" {
-			t.Errorf("unexpected encrypt payload: %#v", payload)
-		}
-		key, err := base64.StdEncoding.DecodeString(payload["plaintext"])
-		if err != nil || len(key) != 32 {
-			t.Errorf("plaintext is not a 32-byte DEK: len=%d err=%v", len(key), err)
-		}
+		inspectEncryptPayload(t, request, "ctx-alpha")
 		encryptCalls++
 		_ = json.NewEncoder(w).Encode(APIResponse{Data: base64.StdEncoding.EncodeToString([]byte("new-envelope"))})
 	}))
 	defer server.Close()
 
 	var output bytes.Buffer
-	env := map[string]string{"NEXUSQ_URL": server.URL, "NEXUSQ_TOKEN": "test-token", "NEXUSQ_KEY_ID": "test-key"}
+	env := testEnv(server.URL)
 	if err := run(strings.NewReader("null"), &output, func(k string) string { return env[k] }); err != nil {
 		t.Fatal(err)
 	}
@@ -201,34 +228,32 @@ func TestRunInitialKeyExchange(t *testing.T) {
 	if len(result.Keys.EncryptionKey) != 32 || len(result.Keys.DecryptionKey) != 0 {
 		t.Fatalf("unexpected keys: encryption=%d decryption=%d", len(result.Keys.EncryptionKey), len(result.Keys.DecryptionKey))
 	}
-	if result.Meta.ExternalData["envelope"] != "bmV3LWVudmVsb3Bl" || encryptCalls != 1 {
+	if result.Meta.ExternalData["format_version"] != float64(2) ||
+		result.Meta.ExternalData["context_id"] != "ctx-alpha" ||
+		result.Meta.ExternalData["envelope"] != "bmV3LWVudmVsb3Bl" || encryptCalls != 1 {
 		t.Fatalf("unexpected metadata/call count: %#v calls=%d", result.Meta.ExternalData, encryptCalls)
 	}
 }
 
 func TestRunRestoresPreviousKeyAndRotates(t *testing.T) {
 	oldKey := bytes.Repeat([]byte{0x5a}, 32)
-	inner := base64.StdEncoding.EncodeToString(oldKey)
-	outer := base64.StdEncoding.EncodeToString([]byte(inner))
+	outer := encodeWrappedPayload(t, "ctx-alpha", oldKey)
 	var decryptCalls, encryptCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		var request map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Errorf("decode request: %v", err)
 		}
 		switch r.URL.Path {
 		case "/v1/decrypt":
 			decryptCalls++
-			if payload["envelope"] != "old-envelope" {
-				t.Errorf("decrypt envelope=%q", payload["envelope"])
+			if request["envelope"] != "old-envelope" {
+				t.Errorf("decrypt envelope=%q", request["envelope"])
 			}
 			_ = json.NewEncoder(w).Encode(APIResponse{Data: outer})
 		case "/v1/encrypt":
+			inspectEncryptPayload(t, request, "ctx-alpha")
 			encryptCalls++
-			fresh, err := base64.StdEncoding.DecodeString(payload["plaintext"])
-			if err != nil || len(fresh) != 32 {
-				t.Errorf("new key invalid: len=%d err=%v", len(fresh), err)
-			}
 			_ = json.NewEncoder(w).Encode(APIResponse{Data: base64.StdEncoding.EncodeToString([]byte("rotated-envelope"))})
 		default:
 			t.Errorf("unexpected path %q", r.URL.Path)
@@ -237,9 +262,9 @@ func TestRunRestoresPreviousKeyAndRotates(t *testing.T) {
 	}))
 	defer server.Close()
 
-	input := `{"external_data":{"format_version":1,"envelope":"old-envelope"}}`
+	input := `{"external_data":{"format_version":2,"context_id":"ctx-alpha","envelope":"old-envelope","wrapping_key_id":"old-key"}}`
 	var output bytes.Buffer
-	env := map[string]string{"NEXUSQ_URL": server.URL, "NEXUSQ_TOKEN": "test-token", "NEXUSQ_KEY_ID": "new-key"}
+	env := testEnv(server.URL)
 	if err := run(strings.NewReader(input), &output, func(k string) string { return env[k] }); err != nil {
 		t.Fatal(err)
 	}
@@ -257,8 +282,147 @@ func TestRunRestoresPreviousKeyAndRotates(t *testing.T) {
 	if decryptCalls != 1 || encryptCalls != 1 {
 		t.Fatalf("decrypt calls=%d encrypt calls=%d", decryptCalls, encryptCalls)
 	}
-	if result.Meta.ExternalData["envelope"] != "cm90YXRlZC1lbnZlbG9wZQ==" {
-		t.Fatalf("unexpected rotated envelope: %#v", result.Meta.ExternalData)
+	if result.Meta.ExternalData["format_version"] != float64(2) || result.Meta.ExternalData["context_id"] != "ctx-alpha" {
+		t.Fatalf("rotation did not preserve v2 context: %#v", result.Meta.ExternalData)
+	}
+}
+
+func TestRunRejectsExternalContextMismatchBeforeAPI(t *testing.T) {
+	var apiCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { apiCalls++ }))
+	defer server.Close()
+	input := `{"external_data":{"format_version":2,"context_id":"ctx-other","envelope":"old-envelope","wrapping_key_id":"old-key"}}`
+	var output bytes.Buffer
+	env := testEnv(server.URL)
+	err := run(strings.NewReader(input), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("err=%v, want context mismatch", err)
+	}
+	if apiCalls != 0 || strings.Contains(output.String(), `"keys"`) {
+		t.Fatalf("context mismatch reached API or emitted keys: calls=%d output=%q", apiCalls, output.String())
+	}
+}
+
+func TestRunRejectsDecryptedPayloadContextMismatch(t *testing.T) {
+	var encryptCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/encrypt" {
+			encryptCalls++
+			t.Error("must not wrap a fresh key after context mismatch")
+			return
+		}
+		_ = json.NewEncoder(w).Encode(APIResponse{Data: encodeWrappedPayload(t, "ctx-other", bytes.Repeat([]byte{1}, 32))})
+	}))
+	defer server.Close()
+	input := `{"external_data":{"format_version":2,"context_id":"ctx-alpha","envelope":"old-envelope","wrapping_key_id":"old-key"}}`
+	var output bytes.Buffer
+	env := testEnv(server.URL)
+	err := run(strings.NewReader(input), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "decrypted payload context_id") {
+		t.Fatalf("err=%v, want decrypted payload context mismatch", err)
+	}
+	if encryptCalls != 0 || strings.Contains(output.String(), `"keys"`) {
+		t.Fatalf("mismatch emitted keys or continued: encrypt=%d output=%q", encryptCalls, output.String())
+	}
+}
+
+func TestRunRejectsLegacyMetadataByDefault(t *testing.T) {
+	var apiCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { apiCalls++ }))
+	defer server.Close()
+	input := `{"external_data":{"format_version":1,"envelope":"old-envelope","wrapping_key_id":"old-key"}}`
+	var output bytes.Buffer
+	env := testEnv(server.URL)
+	err := run(strings.NewReader(input), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "legacy metadata v1 is disabled") {
+		t.Fatalf("err=%v, want legacy migration opt-in error", err)
+	}
+	if apiCalls != 0 || strings.Contains(output.String(), `"keys"`) {
+		t.Fatalf("legacy metadata reached API or emitted keys: calls=%d output=%q", apiCalls, output.String())
+	}
+}
+
+func TestRunMigratesLegacyMetadataWhenExplicitlyEnabled(t *testing.T) {
+	oldKey := bytes.Repeat([]byte{0x33}, 32)
+	legacyInner := base64.StdEncoding.EncodeToString(oldKey)
+	legacyOuter := base64.StdEncoding.EncodeToString([]byte(legacyInner))
+	var decryptCalls, encryptCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/decrypt" {
+			decryptCalls++
+			_ = json.NewEncoder(w).Encode(APIResponse{Data: legacyOuter})
+			return
+		}
+		var request map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode encrypt request: %v", err)
+		}
+		inspectEncryptPayload(t, request, "ctx-alpha")
+		encryptCalls++
+		_ = json.NewEncoder(w).Encode(APIResponse{Data: base64.StdEncoding.EncodeToString([]byte("v2-envelope"))})
+	}))
+	defer server.Close()
+
+	input := `{"external_data":{"format_version":1,"envelope":"legacy-envelope","wrapping_key_id":"old-key"}}`
+	var output bytes.Buffer
+	env := testEnv(server.URL)
+	env["NEXUSQ_ALLOW_LEGACY_V1"] = "true"
+	if err := run(strings.NewReader(input), &output, func(k string) string { return env[k] }); err != nil {
+		t.Fatal(err)
+	}
+	var result Result
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if err := json.Unmarshal([]byte(lines[1]), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(result.Keys.DecryptionKey, oldKey) || result.Meta.ExternalData["format_version"] != float64(2) ||
+		result.Meta.ExternalData["context_id"] != "ctx-alpha" || decryptCalls != 1 || encryptCalls != 1 {
+		t.Fatalf("legacy migration failed: keys=%d metadata=%#v decrypt=%d encrypt=%d", len(result.Keys.DecryptionKey), result.Meta.ExternalData, decryptCalls, encryptCalls)
+	}
+}
+
+func TestRunRequiresContextID(t *testing.T) {
+	var output bytes.Buffer
+	env := map[string]string{"NEXUSQ_URL": "https://kms.example.test", "NEXUSQ_TOKEN": "token", "NEXUSQ_KEY_ID": "key"}
+	err := run(strings.NewReader("null"), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "NEXUSQ_CONTEXT_ID") {
+		t.Fatalf("err=%v, want required context ID", err)
+	}
+	if strings.Contains(output.String(), "\"keys\"") {
+		t.Fatalf("provider emitted keys without context ID: %q", output.String())
+	}
+}
+
+func TestRunRejectsInvalidLegacyMigrationFlag(t *testing.T) {
+	var output bytes.Buffer
+	env := testEnv("https://kms.example.test")
+	env["NEXUSQ_ALLOW_LEGACY_V1"] = "yes"
+	err := run(strings.NewReader("null"), &output, func(k string) string { return env[k] })
+	if err == nil || !strings.Contains(err.Error(), "must be exactly true or false") {
+		t.Fatalf("err=%v, want strict migration flag error", err)
+	}
+}
+
+func TestParseProviderMetadataRejectsUnknownFields(t *testing.T) {
+	meta := &Meta{ExternalData: map[string]any{
+		"format_version": float64(2), "context_id": "ctx-alpha",
+		"envelope": "envelope", "wrapping_key_id": "key", "unexpected": "value",
+	}}
+	if _, err := parseProviderMetadata(meta); err == nil {
+		t.Fatal("expected unknown metadata field to be rejected")
+	}
+}
+
+func TestValidateContextID(t *testing.T) {
+	for _, value := range []string{"", " leading", "trailing ", "white space", "non-ascii-ñ", strings.Repeat("a", 129), "bad/slash"} {
+		if err := validateContextID(value); err == nil {
+			t.Errorf("validateContextID(%q) unexpectedly succeeded", value)
+		}
+	}
+	for _, value := range []string{"ctx-alpha", "workspace_01", "a.b:c"} {
+		if err := validateContextID(value); err != nil {
+			t.Errorf("validateContextID(%q): %v", value, err)
+		}
 	}
 }
 
@@ -409,6 +573,53 @@ func FuzzDecodeAPIResponse(f *testing.F) {
 		}
 		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
 			t.Fatalf("accepted invalid Base64: %v", err)
+		}
+	})
+}
+
+func FuzzDecodeWrappedDEK(f *testing.F) {
+	seed, _ := json.Marshal(wrappedDEKPayload{Format: payloadFormat, Version: metadataVersionBound, ContextID: "ctx-alpha", DEK: bytes.Repeat([]byte{7}, 32)})
+	f.Add(base64.StdEncoding.EncodeToString([]byte(base64.StdEncoding.EncodeToString(seed))))
+	for _, value := range []string{"", "%%%", "YQ==", "bnVsbA==", "e30="} {
+		f.Add(value)
+	}
+	f.Fuzz(func(t *testing.T, outer string) {
+		payload, err := decodeWrappedDEK(outer)
+		if err != nil {
+			return
+		}
+		defer clear(payload.DEK)
+		if payload.Format != payloadFormat || payload.Version != metadataVersionBound || validateContextID(payload.ContextID) != nil || len(payload.DEK) != 32 {
+			t.Fatalf("decoder accepted invalid payload: %#v", payload)
+		}
+	})
+}
+
+func FuzzParseProviderMetadata(f *testing.F) {
+	for _, seed := range []string{
+		"{\"external_data\":{\"format_version\":1,\"envelope\":\"e\",\"wrapping_key_id\":\"k\"}}",
+		"{\"external_data\":{\"format_version\":2,\"context_id\":\"ctx\",\"envelope\":\"e\",\"wrapping_key_id\":\"k\"}}",
+		"{\"external_data\":{}}", "null", "[]", "not-json",
+	} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		meta, err := readMetadata(strings.NewReader(raw))
+		if err != nil || meta == nil {
+			return
+		}
+		parsed, err := parseProviderMetadata(meta)
+		if err != nil {
+			return
+		}
+		if parsed.version != metadataVersionLegacy && parsed.version != metadataVersionBound {
+			t.Fatalf("accepted version %d", parsed.version)
+		}
+		if parsed.envelope == "" || parsed.wrappingKey == "" {
+			t.Fatal("accepted incomplete metadata")
+		}
+		if parsed.version == metadataVersionBound && validateContextID(parsed.contextID) != nil {
+			t.Fatal("accepted invalid context")
 		}
 	})
 }

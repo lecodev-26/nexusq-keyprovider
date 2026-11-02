@@ -134,6 +134,8 @@ The executable reads these environment variables:
 | `NEXUSQ_URL` | Yes | NEXUS-Q base URL. |
 | `NEXUSQ_TOKEN` | Yes | Bearer token for the protected API. |
 | `NEXUSQ_KEY_ID` | Yes | Active NEXUS-Q wrapping-key ID. |
+| `NEXUSQ_CONTEXT_ID` | Yes | Stable opaque identifier for this state trust domain; use a distinct value for each state that must be isolated. |
+| `NEXUSQ_ALLOW_LEGACY_V1` | No | Set to `true` only during an intentional v1-to-v2 metadata migration. Defaults to `false`. |
 
 Example for a local development server:
 
@@ -189,7 +191,7 @@ On an initial invocation:
 
 On a subsequent invocation, the companion uses the prior envelope with NEXUS-Q `POST /v1/decrypt`, recovers the previous 32-byte DEK, generates and wraps a fresh DEK, and returns both keys in the provider response.
 
-The metadata contains a format version, the NEXUS-Q envelope, and the wrapping-key ID. It does **not** contain the bearer token or plaintext DEK.
+The v2 metadata contains a format version, the configured context ID, the NEXUS-Q envelope, and the wrapping-key ID. The DEK and context assertion are inside the encrypted NEXUS-Q payload; metadata does **not** contain the bearer token or plaintext DEK. Legacy v1 metadata is rejected by default. For a deliberate migration, set `NEXUSQ_ALLOW_LEGACY_V1=true` with the correct `NEXUSQ_CONTEXT_ID`, refresh and verify all dependent state and saved-plan artifacts, then unset the flag. v1 has no context binding, so the first migration is an operator-trusted transition and cannot retrospectively prove the legacy envelope origin.
 
 **Rotation warning:** keep old NEXUS-Q wrapping keys available until every state or saved-plan artifact that depends on them has been migrated or retired. Removing an old wrapping key too early can make historical state or plans unreadable.
 

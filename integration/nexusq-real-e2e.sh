@@ -119,6 +119,7 @@ unlock_server
 export NEXUSQ_URL="$SERVER_URL"
 export NEXUSQ_TOKEN="$SERVER_TOKEN"
 export NEXUSQ_KEY_ID="$KEY1"
+export NEXUSQ_CONTEXT_ID="ci-real-nexusq-state"
 export NEXUSQ_HTTP_BACKEND_STATE="$TMP/remote.tfstate"
 export NEXUSQ_HTTP_BACKEND_LOCK="$TMP/remote.lock"
 
