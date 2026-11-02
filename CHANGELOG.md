@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Generate an SPDX JSON source SBOM and a release-candidate bundle in CI; attach GitHub-signed build provenance/SBOM attestation and upload the bundle as a 30-day workflow artifact. No GitHub Release is published automatically.
+- Generate an SPDX JSON source SBOM and a release-candidate bundle in CI; attach separate GitHub-signed build-provenance and SBOM attestations and upload the bundle as a 30-day workflow artifact. No GitHub Release is published automatically.
 
 - Add platform-specific build/install guidance, upgrade and rollback cautions, and a troubleshooting reference.
 - Expand core OpenTofu E2E coverage to 1.12.11 on Linux AMD64 while retaining 1.13.2 coverage on AMD64/ARM64; document exact compatibility boundaries.
