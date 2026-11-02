@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Generate separate SPDX 2.3 SBOMs for source, release binaries, and direct CI workflow actions, declared integration inputs, and release-build tools; pin Syft v1.55.0 and attest each SBOM plus SLSA build provenance. Record the CI build environment and retain the release candidate and verification bundles for 30 days; no GitHub Release is published automatically.
+## [0.1.0-rc.1] - 2026-11-02
+
+- Publish the first experimental pre-release with Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 binaries, SHA-256 checksums, three SPDX SBOMs, build metadata, and Sigstore attestation bundles. This is a review candidate, not a stable or production-certified release.
+- Link the downloadable release assets and document checksum and attestation verification.
+
+
+- Generate separate SPDX 2.3 SBOMs for source, release binaries, and direct CI workflow actions, declared integration inputs, and release-build tools; pin Syft v1.55.0 and attest each SBOM plus SLSA build provenance. Record the CI build environment and retain the release candidate and verification bundles for 30 days; GitHub Releases are used as the public download location for experimental pre-releases.
 - Run native OpenTofu 1.13.2 provider runtime E2E on macOS 15 ARM64 and Windows Server 2025 AMD64.
 - Strengthen release reproducibility checks with separate empty Go build caches on each runner and retain an independent-runner byte-comparison report; this remains GitHub Actions-internal evidence, not third-party verification.
 

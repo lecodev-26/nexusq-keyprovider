@@ -116,7 +116,7 @@ bash scripts/release-build.sh
 (cd dist && sha256sum --check SHA256SUMS)
 ```
 
-The script builds Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 twice, compares each pair byte-for-byte, and writes SHA-256 checksums plus build metadata. See [Release build and verification](docs/RELEASE-BUILDS.md) for independent verification and limitations. Prebuilt release artifacts are not currently published; these are local/CI build candidates, not signed releases.
+The script builds Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 twice, compares each pair byte-for-byte, and writes SHA-256 checksums plus build metadata. See [Release build and verification](docs/RELEASE-BUILDS.md) for independent verification and limitations. A downloadable experimental pre-release is available from the [GitHub Releases page](https://github.com/lecodev-26/nexusq-keyprovider/releases). Verify its SHA-256 checksums and Sigstore attestations before use; see [Release build and verification](docs/RELEASE-BUILDS.md). This pre-release is not independently security-audited or production-certified.
 
 ## Configure NEXUS-Q
 

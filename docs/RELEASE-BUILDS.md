@@ -2,7 +2,7 @@
 
 ## Scope
 
-Prebuilt release binaries are not currently published. CI creates release candidates, checks repeatability, rebuilds them on a separate GitHub-hosted runner, and retains verification evidence. This is stronger cross-runner evidence, **not an independent operator or third-party reproducible-build audit**.
+The project publishes experimental pre-releases through [GitHub Releases](https://github.com/lecodev-26/nexusq-keyprovider/releases). Each release provides a platform bundle, SHA-256 checksums, SPDX SBOMs, build metadata, and Sigstore attestation bundles. CI also rebuilds the same commit on a separate GitHub-hosted runner and compares the outputs. This is stronger cross-runner evidence, **not an independent operator or third-party reproducible-build audit**. All releases remain experimental until external security review and outstanding validation are complete.
 
 ## Pinned build environment
 
@@ -38,11 +38,11 @@ The release-build CI job produces three distinct SPDX 2.3 JSON documents:
 
 Syft is pinned to `v1.55.0`. `BUILD-ENVIRONMENT.txt` records the runner image metadata, OS, Go environment/module graph, and direct action/tool versions. The CI environment SPDX inventory records runner labels across the workflow and the actual image/tool versions of the release-build runner. It deliberately does **not** enumerate every preinstalled package on every runner, transitive dependencies bundled inside each action, the exact Rust stable patch selected at runtime, GitHub service internals, or the external NEXUS-Q deployment. Those remain outside its scope.
 
-The release candidate tarball includes all three SBOMs, the environment manifest, checksums, build metadata, and four binaries. The workflow separately attests the source, release-binary, and CI-environment SBOMs and the tarball's SLSA build provenance. The tarball and Sigstore bundles are retained as workflow artifacts for 30 days; no GitHub Release is published automatically.
+The release candidate tarball includes all three SBOMs, the environment manifest, checksums, build metadata, and four binaries. The workflow separately attests the source, release-binary, and CI-environment SBOMs and the tarball's SLSA build provenance. The tarball and Sigstore bundles are also retained as workflow artifacts for 30 days. The published GitHub Release is the stable discovery and download location; its assets are attached from the exact successful CI run for the tagged source commit.
 
 ## Verify checksums and attestations
 
-After downloading and extracting the workflow artifact:
+Download the release assets from the [latest GitHub Release](https://github.com/lecodev-26/nexusq-keyprovider/releases/latest). Extract `nexusq-keyprovider-release-candidates.tar.gz` and keep the three `*.sigstore.json` bundles beside it. Then:
 
 ```sh
 cd extracted-bundle
@@ -60,7 +60,10 @@ The second GitHub-hosted runner verifies all four attestations, verifies the bun
 
 Cross-compilation is not runtime testing. The CI workflow also runs the provider's OpenTofu 1.13.2 protocol, local-state/saved-plan, DEK recovery/rotation, and HTTP remote-state recovery E2E suite on native macOS 15 ARM64 and Windows Server 2025 AMD64 runners. The Linux compatibility matrix remains separately documented in [OpenTofu compatibility](OPENTOFU-COMPATIBILITY.md). These native jobs use a test-only NEXUS-Q API fixture; they do not test a production NEXUS-Q deployment or AWS S3.
 
-## Artifact names
+## Release assets and platform binaries
+
+Each experimental release includes `nexusq-keyprovider-release-candidates.tar.gz` plus four detached Sigstore bundles: `provenance.sigstore.json`, `source-sbom-attestation.sigstore.json`, `release-sbom-attestation.sigstore.json`, and `ci-sbom-attestation.sigstore.json`. The tarball contains the following executables, three SPDX SBOMs, checksums, and build/environment metadata.
+
 
 - `nexusq-keyprovider-linux-amd64`
 - `nexusq-keyprovider-linux-arm64`
