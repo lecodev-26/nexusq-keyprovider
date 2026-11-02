@@ -46,7 +46,7 @@ Completed in this increment:
 
 Still pending:
 
-1. Expand the OpenTofu compatibility matrix beyond the currently exercised 1.13.2 baseline after selecting supported versions.
+1. Keep the OpenTofu compatibility matrix current as supported patch releases change; the core E2E suite now covers 1.12.11 (Linux AMD64) and 1.13.2 (Linux AMD64/ARM64). The S3Mock and real-service suites remain on 1.13.2.
 2. Obtain independent reproducible-build verification from a separate clean environment/operator.
 3. Add signed checksums/attestations and an SBOM before publishing release artifacts.
 4. Document installation, configuration, upgrade, rollback, and troubleshooting for each supported platform.

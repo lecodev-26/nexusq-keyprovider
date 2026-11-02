@@ -47,7 +47,7 @@ Cross-compilation is not runtime testing. OpenTofu E2E runtime tests currently r
 
 ## Compatibility boundary
 
-Automated OpenTofu integration jobs currently pin **OpenTofu 1.13.2**. This is the currently exercised baseline, not a broad compatibility matrix. Older/newer releases and runtime behavior on macOS/Windows must not be claimed until dedicated CI/runtime tests pass.
+The core automated OpenTofu E2E suite currently tests **1.12.11 on Linux AMD64** and **1.13.2 on Linux AMD64/ARM64**. The S3Mock and real NEXUS-Q service E2E suites remain pinned to 1.13.2. See the [OpenTofu compatibility matrix](OPENTOFU-COMPATIBILITY.md) for exact scope. Other patches/releases and runtime behavior on macOS/Windows must not be claimed until dedicated CI/runtime tests pass.
 
 ## Checksums and provenance limitations
 

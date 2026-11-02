@@ -39,7 +39,7 @@ The project is intentionally named for the integration layer it may grow into. O
 
 ## Validated behavior
 
-Local end-to-end testing was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 4.1.2. The local and CI integration suites cover the following scenarios:
+The core provider E2E suite is now tested with OpenTofu 1.12.11 on Linux AMD64 and 1.13.2 on Linux AMD64/ARM64. The S3Mock and real NEXUS-Q service E2E suites remain pinned to 1.13.2. The local and CI integration suites cover the following scenarios:
 
 - OpenTofu initialization and apply with state encryption enabled.
 - State refresh and decryption through `tofu show -json`.
@@ -221,7 +221,7 @@ Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning dep
 
 The S3Mock test uses generated local credentials and a loopback endpoint. It deliberately does not enable S3 locking. It does not establish compatibility with AWS S3 or other vendors, nor validate production IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, TLS configuration, or lock contention. Real AWS checks are pending; see the [AWS S3 validation runbook](docs/AWS-S3-VALIDATION.md) for the prepared test procedure and [ROADMAP.md](ROADMAP.md) for phase status. For production backend controls, see [SECURITY.md](SECURITY.md) and [Threat Model Review Notes](docs/THREAT-MODEL-REVIEW.md).
 
-Run the automated suite on Linux with Go 1.27+, OpenTofu 1.13.2, Python 3, and `curl`:
+Run the core automated suite on Linux with Go 1.27+, either OpenTofu 1.12.11 or 1.13.2, Python 3, and `curl`:
 
 ```sh
 bash integration/e2e.sh
@@ -253,11 +253,11 @@ GitHub Actions runs:
 - Dedicated Go 1.27 fuzzing for metadata parsing, NEXUS-Q URL validation, and API response parsing.
 - Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64. A separate pinned Go 1.27.2 job builds each release target twice, checks byte-for-byte determinism within the runner, and verifies generated SHA-256 checksums; this is not an independent attestation.
-- OpenTofu 1.13.2 E2E tests on native Linux AMD64 and ARM64 runners, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
+- OpenTofu core E2E tests on Linux AMD64 with 1.12.11 and on Linux AMD64/ARM64 with 1.13.2, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
 - An OpenTofu 1.13.2 S3-compatible backend E2E job against a pinned Adobe S3Mock test service, including encrypted state/plan storage, plaintext-marker scans, service-restart recovery, and wrapping-key rotation. This fixture does not validate AWS production controls or S3 locking.
 - A real NEXUS-Q E2E job on Linux AMD64. It builds NEXUS-Q v4.1.2 from a pinned commit, provisions a temporary vault and wrapping keys, and tests authenticated API operations, encrypted local state/saved plans, key rotation, server restart recovery, HTTP-backend recovery, and audit verification. No long-lived repository secrets are required.
 
-See the [CI workflow](.github/workflows/ci.yml) for the exact matrix and pinned NEXUS-Q source revision. OpenTofu E2E currently exercises version 1.13.2 only. Cross-build success is not the same as runtime testing on every target platform. See [Release build and verification](docs/RELEASE-BUILDS.md) for the artifact verification boundary.
+See the [OpenTofu compatibility matrix](docs/OPENTOFU-COMPATIBILITY.md) and [CI workflow](.github/workflows/ci.yml) for exact tested versions and coverage. The S3Mock and real-service suites currently remain on 1.13.2. Cross-build success is not the same as runtime testing on every target platform. See [Release build and verification](docs/RELEASE-BUILDS.md) for the artifact verification boundary.
 
 ## Contributing
 
@@ -266,6 +266,7 @@ Bug reports, protocol feedback, documentation improvements, and focused tests ar
 ## Project documentation
 
 - [Project roadmap and validation status](ROADMAP.md)
+- [OpenTofu compatibility matrix](docs/OPENTOFU-COMPATIBILITY.md)
 - [AWS S3 validation runbook (not yet executed)](docs/AWS-S3-VALIDATION.md)
 - [Design and protocol flow](DESIGN.md)
 - [Security policy](SECURITY.md)

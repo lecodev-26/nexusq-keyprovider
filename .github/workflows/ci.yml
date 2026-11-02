@@ -104,16 +104,21 @@ jobs:
         run: sha256sum --check SHA256SUMS
 
   e2e:
-    name: OpenTofu E2E (Linux ${{ matrix.arch }})
+    name: OpenTofu E2E (${{ matrix.tofu_version }} / Linux ${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-24.04
+          - tofu_version: '1.12.11'
+            runner: ubuntu-24.04
             arch: AMD64
-          - runner: ubuntu-24.04-arm
+          - tofu_version: '1.13.2'
+            runner: ubuntu-24.04
+            arch: AMD64
+          - tofu_version: '1.13.2'
+            runner: ubuntu-24.04-arm
             arch: ARM64
     steps:
       - uses: actions/checkout@v7.0.1
@@ -124,7 +129,7 @@ jobs:
           cache: false
       - uses: opentofu/setup-opentofu@v2.0.2
         with:
-          tofu_version: '1.13.2'
+          tofu_version: ${{ matrix.tofu_version }}
           tofu_wrapper: false
       - name: Run end-to-end integration suite
         run: bash integration/e2e.sh
