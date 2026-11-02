@@ -215,7 +215,7 @@ The v2 metadata contains a format version, the configured context ID, the NEXUS-
 
 Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning deployment.
 
-For upstream interoperability feedback and the independent-review scope, see [External review and community feedback](docs/EXTERNAL-REVIEW.md). The community post is prepared but not yet published; no independent audit is claimed.
+For external operator testing, follow the [External operator testing guide](docs/EXTERNAL-TESTING.md). For upstream interoperability feedback and the independent-review scope, see [External review and community feedback](docs/EXTERNAL-REVIEW.md). OpenTofu community discussion [#4801](https://github.com/orgs/opentofu/discussions/4801) is published and feedback is pending; no independent audit is claimed.
 
 ## Integration fixtures
 
@@ -270,6 +270,8 @@ Bug reports, protocol feedback, documentation improvements, and focused tests ar
 ## Project documentation
 
 - [Project roadmap and validation status](ROADMAP.md)
+- [External operator testing guide](docs/EXTERNAL-TESTING.md)
+- [External review and community feedback](docs/EXTERNAL-REVIEW.md)
 - [OpenTofu compatibility matrix](docs/OPENTOFU-COMPATIBILITY.md)
 - [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md)
 - [AWS S3 validation runbook (not yet executed)](docs/AWS-S3-VALIDATION.md)

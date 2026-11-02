@@ -2,7 +2,7 @@
 
 ## Scope
 
-This guide installs the companion executable locally. It does not install NEXUS-Q or OpenTofu. Prebuilt NEXUS-Q Key Provider release binaries are not published yet; build from a reviewed source commit. The project has runtime E2E evidence on Linux AMD64/ARM64 only. macOS and Windows commands below describe build/install steps, not runtime compatibility certification.
+This guide installs the companion executable locally. It does not install NEXUS-Q or OpenTofu. Experimental prebuilt NEXUS-Q Key Provider binaries are available from the [GitHub Releases page](https://github.com/lecodev-26/nexusq-keyprovider/releases); verify their checksums and attestations before use. You may also build from a reviewed source commit. Native runtime E2E evidence covers OpenTofu 1.13.2 on Linux AMD64/ARM64, macOS 15 ARM64, and Windows Server 2025 AMD64. This does not establish compatibility with other OS releases, architectures, or OpenTofu versions. macOS and Windows commands below describe build/install steps; consult the compatibility matrix for exact runtime coverage.
 
 ## Requirements
 

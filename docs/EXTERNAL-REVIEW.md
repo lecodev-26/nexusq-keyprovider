@@ -46,7 +46,7 @@ The discussion was published in the OpenTofu community forum: [Discussion #4801]
 >
 > I am not requesting an OpenTofu core change or implying endorsement. I would value technical feedback before considering any broader release.
 
-Before posting, replace the validation summary with the latest CI run link and confirm the current compatibility matrix. Do not attach state files, plans, credentials, tokens, or real infrastructure data.
+The published discussion is the current public feedback thread. When updating it, refresh the validation summary against the latest CI run and compatibility matrix. Do not attach state files, plans, credentials, tokens, or real infrastructure data.
 
 ## 2. Technical review questions
 
