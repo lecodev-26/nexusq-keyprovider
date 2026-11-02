@@ -78,8 +78,10 @@ test -x "$SERVER_BIN"
 chmod 700 "$PROVIDER_BIN"
 
 echo "== Create an ephemeral NEXUS-Q vault and two wrapping keys =="
-openssl rand -hex 32 >"$TMP/vault-password"
-openssl rand -hex 32 >"$TMP/server-token"
+# Keep generated secrets newline-free: the CLI strips one trailing newline
+# from password files, while the HTTP unlock API receives the exact bytes.
+printf '%s' "$(openssl rand -hex 32)" >"$TMP/vault-password"
+printf '%s' "$(openssl rand -hex 32)" >"$TMP/server-token"
 chmod 600 "$TMP/vault-password" "$TMP/server-token"
 SERVER_TOKEN="$(cat "$TMP/server-token")"
 printf 'header = "Authorization: Bearer %s"\n' "$SERVER_TOKEN" >"$TMP/curl-auth.conf"
