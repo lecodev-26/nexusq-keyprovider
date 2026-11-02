@@ -87,3 +87,42 @@ jobs:
           tofu_wrapper: false
       - name: Run end-to-end integration suite
         run: bash integration/e2e.sh
+
+  nexusq-real-e2e:
+    name: Real NEXUS-Q E2E (Linux AMD64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout key provider
+        uses: actions/checkout@v7.0.1
+        with:
+          path: nexusq-keyprovider
+          persist-credentials: false
+      - name: Checkout NEXUS-Q v4.1.2
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: lecodev-26/nexus-q
+          ref: 8735e5537bc687ee906ed68bdf119fc8956d9439
+          path: nexus-q
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+      - name: Install Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: '1.13.2'
+          tofu_wrapper: false
+      - name: Build real NEXUS-Q CLI and server
+        working-directory: nexus-q
+        run: cargo build --locked --release -p nexusq-cli -p nexusq-server
+      - name: Run real NEXUS-Q integration suite
+        working-directory: nexusq-keyprovider
+        env:
+          NEXUSQ_SOURCE_DIR: ${{ github.workspace }}/nexus-q
+        run: bash integration/nexusq-real-e2e.sh

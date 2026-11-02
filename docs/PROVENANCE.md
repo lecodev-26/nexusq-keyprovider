@@ -10,12 +10,14 @@ The Go implementation, tests, and test-only NEXUS-Q API substitute use the Go st
 
 The project does not currently vendor source code, bundle external executables, or include generated third-party source.
 
+The real-service CI integration job checks out the public NEXUS-Q repository at commit `8735e5537bc687ee906ed68bdf119fc8956d9439` (the dereferenced v4.1.2 tag commit) and builds its CLI/server from source. NEXUS-Q is a separate project and is not copied into this repository or linked as a Go dependency. The CI job creates a disposable vault, random password, bearer token, and wrapping keys at runtime; none are stored as repository secrets or uploaded as artifacts.
+
 ## Licensing
 
 - Project source and original project documentation: Apache License 2.0; see the repository's `LICENSE`.
 - Go standard library: distributed under the Go project's applicable open-source license terms; it is part of the Go toolchain and is not copied into this repository.
 - Python standard library: distributed under the applicable Python Software Foundation license terms; it is not copied into this repository.
-- GitHub Actions workflow: references external actions by release tags (`actions/checkout`, `actions/setup-go`, and `opentofu/setup-opentofu`). These are CI-time dependencies, not runtime dependencies. For a hardened release pipeline, pin each action to a reviewed full commit SHA and periodically review updates.
+- GitHub Actions workflow: references external actions by release tags (`actions/checkout`, `actions/setup-go`, and `opentofu/setup-opentofu`). These are CI-time dependencies, not runtime dependencies. The NEXUS-Q source checkout and the Rust toolchain setup action are pinned to full commit SHAs. For a hardened release pipeline, pin each action to a reviewed full commit SHA and periodically review updates.
 
 ## Maintainer checks before a release
 

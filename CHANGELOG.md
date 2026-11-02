@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Strengthen protocol-header and malformed-input tests.
 - Update GitHub Actions to current major releases and disable unused Go module caching.
 - Add native Linux AMD64/ARM64 OpenTofu E2E automation for encrypted state, saved plans, DEK recovery/rotation, and HTTP-backend persistence using test-only fixtures.
+- Add a real NEXUS-Q v4.1.2 E2E CI job using a pinned source commit and ephemeral vault, credentials, and wrapping keys; cover authenticated API integration, state/saved-plan encryption, key rotation, server restart recovery, HTTP-backend persistence, and audit verification.
 
 ## [0.1.0] - Unreleased
 

@@ -47,7 +47,7 @@ A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 
 - Four concurrent local plan processes in independent workspace copies.
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
 
-The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. The CI E2E suite additionally runs real OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64, using a test-only NEXUS-Q API substitute to exercise state encryption, saved-plan encryption, previous-DEK recovery, rotation, and HTTP-backend persistence from a clean work directory. Local statement coverage is **79.4%** with the current test suite.
+The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. One CI E2E job runs OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64 with a test-only NEXUS-Q API substitute. A separate Linux AMD64 CI job builds the NEXUS-Q v4.1.2 CLI and server from a pinned source commit, creates an ephemeral vault and wrapping keys, and exercises the real authenticated API with state encryption, saved plans, previous-key recovery, key-ID rotation, server restart recovery, HTTP-backend persistence, and audit-chain verification. The real-service job uses only generated CI credentials and a temporary vault; it does not depend on repository secrets. Local statement coverage is **79.4%** with the current Go test suite.
 
 These results describe specific local tests. They do not establish compatibility with production remote backend services, all OpenTofu versions, sustained workloads, or distributed CI environments.
 
@@ -215,6 +215,14 @@ bash integration/e2e.sh
 
 The script builds the provider and mock API locally, creates temporary state/plan/backend files, and removes its temporary files and fixture processes on exit. It uses loopback ports 18443 and 18444; ensure those ports are available.
 
+`integration/nexusq-real-e2e.sh` runs the same integration boundary against real NEXUS-Q binaries. Build the `nexusq` and `nexusq-server` release binaries from the NEXUS-Q v4.1.2 source first, then run:
+
+```sh
+NEXUSQ_SOURCE_DIR=/path/to/nexus-q bash integration/nexusq-real-e2e.sh
+```
+
+The real-service test requires Rust/Cargo, Go, OpenTofu 1.13.2, Python 3, `curl`, and `openssl`. It creates an ephemeral vault, random password and server token, and temporary audit/state files. It binds only to loopback ports 18445 and 18444. The script removes the temporary vault and stops its server/backend processes on exit. It is a CI/development integration test, not a deployment recipe.
+
 ## CI
 
 GitHub Actions runs:
@@ -223,8 +231,9 @@ GitHub Actions runs:
 - Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
 - OpenTofu 1.13.2 E2E tests on native Linux AMD64 and ARM64 runners, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
+- A real NEXUS-Q E2E job on Linux AMD64. It builds NEXUS-Q v4.1.2 from a pinned commit, provisions a temporary vault and wrapping keys, and tests authenticated API operations, encrypted local state/saved plans, key rotation, server restart recovery, HTTP-backend recovery, and audit verification. No long-lived repository secrets are required.
 
-See the [CI workflow](.github/workflows/ci.yml) for the exact matrix. Cross-build success is not the same as runtime testing on every target platform.
+See the [CI workflow](.github/workflows/ci.yml) for the exact matrix and pinned NEXUS-Q source revision. Cross-build success is not the same as runtime testing on every target platform.
 
 ## Contributing
 
