@@ -128,14 +128,19 @@ jobs:
             sbom.spdx.json SHA256SUMS BUILD-INFO.txt
       - name: Generate signed build provenance and SBOM attestation
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        id: attest
         with:
           subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
           sbom-path: dist/sbom.spdx.json
+      - name: Preserve Sigstore bundle for independent verification
+        run: cp "${{ steps.attest.outputs.bundle-path }}" dist/attestation.sigstore.json
       - name: Upload release candidate bundle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: nexusq-keyprovider-release-candidates
-          path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          path: |
+            dist/nexusq-keyprovider-release-candidates.tar.gz
+            dist/attestation.sigstore.json
           if-no-files-found: error
           retention-days: 30
 
@@ -165,6 +170,14 @@ jobs:
           tar -xzf "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" -C "$RUNNER_TEMP/expected"
           cd "$RUNNER_TEMP/expected"
           sha256sum --check SHA256SUMS
+      - name: Fetch Sigstore trusted root
+        run: gh attestation trusted-root > "$RUNNER_TEMP/trusted_root.jsonl"
+      - name: Verify signed provenance on the separate runner
+        run: |
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+            --repo lecodev-26/nexusq-keyprovider \
+            --bundle "$RUNNER_TEMP/candidate/attestation.sigstore.json" \
+            --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Rebuild on a separate GitHub-hosted runner
         run: bash scripts/release-build.sh "$RUNNER_TEMP/rebuilt"
       - name: Compare independent build outputs byte-for-byte

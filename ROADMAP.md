@@ -51,7 +51,7 @@ Still pending:
 
 1. Keep the OpenTofu compatibility matrix current as supported patch releases change; the core E2E suite now covers 1.12.11 (Linux AMD64) and 1.13.2 (Linux AMD64/ARM64). The S3Mock and real-service suites remain on 1.13.2.
 2. Obtain independent reproducible-build verification from a separate operator or environment outside this repository's GitHub Actions workflow; the current second-runner comparison is not a third-party audit.
-3. Verify the generated artifact attestation from a separate environment and retain independent verification evidence.
+3. Obtain independent attestation verification outside this repository's GitHub Actions workflow; the second runner now verifies the Sigstore bundle using the Sigstore trusted root.
 4. Validate the installation instructions on clean Linux, macOS, and Windows hosts; documentation exists, but macOS/Windows runtime behavior is not yet tested.
 5. Add runtime testing on macOS/Windows before claiming those platforms as runtime-validated.
 6. Review whether a source-workspace SBOM is sufficient for the intended release process; expand scope if binary/runtime or CI-toolchain inventories are required.
