@@ -82,3 +82,39 @@ No upstream core issue or pull request has been created by this project. Communi
 ## Release and production boundary
 
 This repository remains an experimental integration prototype. Passing CI, S3Mock coverage, and a prepared AWS runbook do not establish production readiness, an independent security audit, or AWS service compatibility.
+
+## Product direction — beyond OpenTofu
+
+**Vision:** make NEXUS-Q usable as a reusable key-management and envelope-encryption service across infrastructure and developer tooling, with OpenTofu as the first integration.
+
+This is a direction for the project, not a claim that the integrations below exist today. The current implementation is an OpenTofu-specific companion.
+
+### Available today — first integration
+
+- **OpenTofu:** experimental External Key Provider integration for state and saved-plan encryption, backed by NEXUS-Q.
+- Current distribution: [v0.1.0-rc.1](https://github.com/lecodev-26/nexusq-keyprovider/releases/tag/v0.1.0-rc.1). It is a pre-release, not a stable or production-certified release.
+
+### Next — strengthen the first integration
+
+- Gather feedback from external OpenTofu operators and address protocol, installation, configuration, and recovery issues.
+- Complete an independent security review and publish its scope and findings.
+- Obtain an independent, outside-CI build reproduction.
+- Run the documented real-AWS S3 validation when an authorized test environment is available.
+- Define explicit release criteria for a stable version; do not promote the current release candidate to stable solely because CI passes.
+
+### Future — reusable NEXUS-Q integration layer
+
+- **Separate core from adapters:** identify and extract reusable NEXUS-Q client, envelope/key lifecycle, configuration, and error-handling components from OpenTofu protocol-specific code, without weakening the existing security boundaries.
+- **Define adapter contracts:** document stable interfaces for integrations, including key creation/recovery, context binding, metadata versioning, error semantics, and compatibility expectations.
+- **Explore additional integrations:** investigate other infrastructure-as-code tools, Kubernetes secret workflows, and CI/CD or developer-platform secret workflows where there is a clear and secure integration point.
+- **Evaluate ecosystem interoperability:** assess whether NEXUS-Q can complement existing KMS or secrets-management systems rather than requiring users to replace them.
+
+### Principles for future integrations
+
+- Prioritize based on real user demand, maintainability, and a demonstrable security benefit.
+- Treat each adapter as a separately scoped integration with its own threat model, compatibility matrix, tests, and operational documentation.
+- Reuse the NEXUS-Q service where appropriate; do not assume that the OpenTofu protocol or its metadata format is a universal interface.
+- Mark an integration as planned until code, tests, documentation, and reproducible evidence exist.
+- Do not promise dates or production support before scope, ownership, and validation requirements are understood.
+
+The roadmap is intentionally directional. Future integrations are exploratory and are not currently implemented or committed to a release schedule.
