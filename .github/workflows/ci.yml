@@ -87,6 +87,10 @@ jobs:
   release-build-repro:
     name: Reproducible release build (Go 1.27.2)
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
@@ -102,6 +106,78 @@ jobs:
       - name: Verify generated SHA-256 checksums
         working-directory: dist
         run: sha256sum --check SHA256SUMS
+      - name: Generate source SBOM (SPDX JSON)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          artifact-name: nexusq-keyprovider-sbom.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+      - name: Refresh checksums and assemble release candidate bundle
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum nexusq-keyprovider-* sbom.spdx.json > SHA256SUMS
+          tar -czf nexusq-keyprovider-release-candidates.tar.gz \
+            nexusq-keyprovider-linux-amd64 \
+            nexusq-keyprovider-linux-arm64 \
+            nexusq-keyprovider-darwin-arm64 \
+            nexusq-keyprovider-windows-amd64.exe \
+            sbom.spdx.json SHA256SUMS BUILD-INFO.txt
+      - name: Generate signed build provenance and SBOM attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          sbom-path: dist/sbom.spdx.json
+      - name: Upload release candidate bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nexusq-keyprovider-release-candidates
+          path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  independent-rebuild-check:
+    name: Independent runner rebuild comparison
+    needs: release-build-repro
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.2'
+          check-latest: false
+          cache: false
+      - name: Download release candidate bundle from primary runner
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nexusq-keyprovider-release-candidates
+          path: ${{ runner.temp }}/candidate
+      - name: Verify bundle checksums
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expected"
+          tar -xzf "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" -C "$RUNNER_TEMP/expected"
+          cd "$RUNNER_TEMP/expected"
+          sha256sum --check SHA256SUMS
+      - name: Rebuild on a separate GitHub-hosted runner
+        run: bash scripts/release-build.sh "$RUNNER_TEMP/rebuilt"
+      - name: Compare independent build outputs byte-for-byte
+        run: |
+          set -euo pipefail
+          for file in \
+            nexusq-keyprovider-linux-amd64 \
+            nexusq-keyprovider-linux-arm64 \
+            nexusq-keyprovider-darwin-arm64 \
+            nexusq-keyprovider-windows-amd64.exe; do
+            cmp "$RUNNER_TEMP/expected/$file" "$RUNNER_TEMP/rebuilt/$file"
+          done
+          echo "All four binaries match byte-for-byte across separate GitHub-hosted runners."
 
   e2e:
     name: OpenTofu E2E (${{ matrix.tofu_version }} / Linux ${{ matrix.arch }})

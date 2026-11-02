@@ -17,13 +17,13 @@ The real-service CI integration job checks out the public NEXUS-Q repository at 
 - Project source and original project documentation: Apache License 2.0; see the repository's `LICENSE`.
 - Go standard library: distributed under the Go project's applicable open-source license terms; it is part of the Go toolchain and is not copied into this repository.
 - Python standard library: distributed under the applicable Python Software Foundation license terms; it is not copied into this repository.
-- GitHub Actions workflow: references external actions by release tags (`actions/checkout`, `actions/setup-go`, and `opentofu/setup-opentofu`). These are CI-time dependencies, not runtime dependencies. The NEXUS-Q source checkout and the Rust toolchain setup action are pinned to full commit SHAs. For a hardened release pipeline, pin each action to a reviewed full commit SHA and periodically review updates.
+- GitHub Actions workflow: CI-time dependencies are not runtime dependencies. The SBOM, attestation, and artifact-upload actions used by the release-build job are pinned to reviewed immutable commit SHAs; other workflow actions should continue to be reviewed and pinned before using this workflow as a production release pipeline. The NEXUS-Q source checkout and Rust toolchain setup action are also pinned to full commit SHAs.
 
 ## Release build evidence and limitations
 
 The repository includes `scripts/release-build.sh`, which requires Go 1.27.2, a clean Git worktree, disables CGO, uses `-trimpath` and `-buildvcs=false`, and builds Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 outputs twice. It compares each pair byte-for-byte and emits SHA-256 checksums plus a build-info file. CI runs the same procedure on Ubuntu 24.04.
 
-This establishes repeated-build determinism within that CI runner, not independent reproducibility across machines. Checksums are not signatures; they do not authenticate the publisher. There are no published release binaries, signed attestations, signed executables, or release SBOM yet. See [Release build and verification](RELEASE-BUILDS.md).
+CI now also rebuilds the exact commit on a second GitHub-hosted runner and compares all four binary outputs byte-for-byte with the primary runner. This is cross-runner evidence within GitHub Actions, but not an independent operator or third-party reproducibility audit. Checksums are not signatures; they do not authenticate the publisher. The release-build CI job now generates an SPDX JSON source SBOM with Anchore Syft, assembles a release-candidate bundle, and creates a GitHub artifact attestation (SLSA build provenance plus the SBOM association) using GitHub's attestation service. The workflow uploads the candidate bundle as a 30-day workflow artifact; it does not publish a GitHub Release or sign the executable files themselves. The SBOM describes the scanned source workspace and should not be mistaken for a complete inventory of the external CI toolchain or NEXUS-Q deployment environment. See [Release build and verification](RELEASE-BUILDS.md).
 
 ## Maintainer checks before a release
 

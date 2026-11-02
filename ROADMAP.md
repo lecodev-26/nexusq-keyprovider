@@ -35,7 +35,7 @@ The reproducible validation procedure is documented in [AWS S3 validation runboo
 
 ## P4 — Quality, compatibility, and distribution
 
-**Status: in progress; initial release-build controls added.**
+**Status: in progress; CI SBOM and signed artifact provenance added.**
 
 Completed in this increment:
 
@@ -43,15 +43,18 @@ Completed in this increment:
 - The script requires a clean checkout, builds each target twice, compares outputs byte-for-byte, and generates SHA-256 checksums and build metadata.
 - Added a CI job that runs the same build procedure and verifies the checksums.
 - Documented the procedure and its limitations in [Release build and verification](docs/RELEASE-BUILDS.md).
+- Added an SPDX JSON source SBOM, a release-candidate bundle, and a GitHub-signed artifact attestation (build provenance with SBOM association) to the release-build CI job. The bundle is retained as a workflow artifact for 30 days; no GitHub Release is published automatically.
+- Added a second GitHub-hosted runner job that rebuilds the same commit and compares all four binaries byte-for-byte with the primary runner's bundle.
 - Added Linux/macOS/Windows build and install guidance, environment setup, upgrade/rollback precautions, and troubleshooting in [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md).
 
 Still pending:
 
 1. Keep the OpenTofu compatibility matrix current as supported patch releases change; the core E2E suite now covers 1.12.11 (Linux AMD64) and 1.13.2 (Linux AMD64/ARM64). The S3Mock and real-service suites remain on 1.13.2.
-2. Obtain independent reproducible-build verification from a separate clean environment/operator.
-3. Add signed checksums/attestations and an SBOM before publishing release artifacts.
+2. Obtain independent reproducible-build verification from a separate operator or environment outside this repository's GitHub Actions workflow; the current second-runner comparison is not a third-party audit.
+3. Verify the generated artifact attestation from a separate environment and retain independent verification evidence.
 4. Validate the installation instructions on clean Linux, macOS, and Windows hosts; documentation exists, but macOS/Windows runtime behavior is not yet tested.
 5. Add runtime testing on macOS/Windows before claiming those platforms as runtime-validated.
+6. Review whether a source-workspace SBOM is sufficient for the intended release process; expand scope if binary/runtime or CI-toolchain inventories are required.
 
 ## P5 — External review
 
