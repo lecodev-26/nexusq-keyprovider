@@ -1,9 +1,9 @@
 # External review and community feedback
 
-**Project:** NEXUS-Q Key Provider for OpenTofu  
-**Current status:** experimental integration prototype  
-**Prepared:** 2026-11-02  
-**Public upstream outreach:** not yet posted  
+**Project:** NEXUS-Q Key Provider for OpenTofu
+**Current status:** experimental integration prototype
+**Prepared:** 2026-11-02
+**Public upstream outreach:** posted to OpenTofu Discussions; feedback pending
 **Independent security audit:** not yet commissioned or performed
 
 This document separates community interoperability feedback from a formal security assessment. Neither is a substitute for the other.
@@ -22,7 +22,7 @@ OpenTofu's contribution guide directs general questions to GitHub Discussions or
 
 ### Draft community discussion
 
-The following text is prepared for an OpenTofu GitHub Discussion or community Slack post. It has not been published.
+The discussion was published in the OpenTofu community forum: [Discussion #4801](https://github.com/orgs/opentofu/discussions/4801). The following is the text that was posted.
 
 **Suggested title:** Feedback request: external NEXUS-Q key provider integration for OpenTofu state and plan encryption
 
@@ -101,7 +101,7 @@ These are separate work items and must remain visibly pending until actually com
 | Activity | Status | Evidence |
 | --- | --- | --- |
 | Internal threat-model review | Complete; internal only | `THREAT-MODEL-REVIEW.md` |
-| OpenTofu protocol and integration feedback | Prepared; not yet requested publicly | Draft above |
+| OpenTofu protocol and integration feedback | Public discussion posted; feedback pending | [Discussion #4801](https://github.com/orgs/opentofu/discussions/4801) |
 | Independent security audit | Not commissioned / not performed | No external report |
 | Independent operator build | Pending | GitHub second-runner comparison is not independent-operator evidence |
 | Real AWS S3 validation | Pending | `AWS-S3-VALIDATION.md` is a runbook only |

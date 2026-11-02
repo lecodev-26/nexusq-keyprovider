@@ -61,11 +61,11 @@ The release candidate and verification evidence are retained as 30-day workflow 
 
 ## P5 — External review
 
-**Status: in progress; outreach package prepared, external feedback and independent review pending.**
+**Status: in progress; community outreach published, external feedback and independent review pending.**
 
 Completed preparation:
 
-- Prepared a community discussion draft focused on External Key Provider protocol interoperability, metadata lifecycle, compatibility edge cases, and documentation feedback. It has **not** been posted publicly yet.
+- Published [OpenTofu community discussion #4801](https://github.com/orgs/opentofu/discussions/4801) requesting External Key Provider protocol interoperability, metadata lifecycle, compatibility edge-case, and documentation feedback.
 - Reviewed the current OpenTofu contribution guidance: general questions belong in GitHub Discussions or the OpenTofu Slack; upstream code changes should follow the maintainers' accepted-issue process.
 - Identified OpenTofu [issue #4206](https://github.com/opentofu/opentofu/issues/4206), an accepted core issue on additional encryption context for built-in cloud key providers. It is related conceptually but does not describe this external NEXUS-Q companion and must not be represented as endorsement or as work completed by this project.
 - Prepared an independent security review scope and evidence checklist in [External review and community feedback](docs/EXTERNAL-REVIEW.md).
@@ -77,7 +77,7 @@ Still pending:
 - Obtain a separate-operator build reproduction.
 - Execute the AWS S3 runbook only when an authorized disposable AWS environment is available.
 
-No upstream issue or discussion has been created by this project, no independent audit has been commissioned or performed, and no AWS validation has been completed. See [External review and community feedback](docs/EXTERNAL-REVIEW.md) for the prepared draft and status ledger.
+No upstream core issue or pull request has been created by this project. Community discussion #4801 is open for feedback. No independent audit has been commissioned or performed, and no AWS validation has been completed. See [External review and community feedback](docs/EXTERNAL-REVIEW.md) for the prepared draft and status ledger.
 
 ## Release and production boundary
 
