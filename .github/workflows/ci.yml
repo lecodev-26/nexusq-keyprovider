@@ -114,12 +114,15 @@ jobs:
           - tofu_version: '1.12.11'
             runner: ubuntu-24.04
             arch: AMD64
+            tofu_arch: amd64
           - tofu_version: '1.13.2'
             runner: ubuntu-24.04
             arch: AMD64
+            tofu_arch: amd64
           - tofu_version: '1.13.2'
             runner: ubuntu-24.04-arm
             arch: ARM64
+            tofu_arch: arm64
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
@@ -132,7 +135,7 @@ jobs:
           TOFU_VERSION: ${{ matrix.tofu_version }}
         run: |
           set -euo pipefail
-          archive="tofu_${TOFU_VERSION}_linux_amd64.zip"
+          archive="tofu_${TOFU_VERSION}_linux_${{ matrix.tofu_arch }}.zip"
           base="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}"
           curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive" "$base/$archive"
           curl --fail --silent --show-error --location --output "$RUNNER_TEMP/SHA256SUMS" "$base/tofu_${TOFU_VERSION}_SHA256SUMS"
