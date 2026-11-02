@@ -355,17 +355,20 @@ jobs:
       - name: Verify native toolchain
         env:
           PYTHON: ${{ matrix.python }}
+        shell: bash
         run: |
           go version
           tofu version
           "$PYTHON" --version
       - name: Run native Go tests and vet
+        shell: bash
         run: |
           go test -count=1 ./...
           go vet ./...
       - name: Run native OpenTofu provider protocol and recovery E2E
         env:
           PYTHON: ${{ matrix.python }}
+        shell: bash
         run: bash integration/e2e.sh
 
   s3mock-e2e:
