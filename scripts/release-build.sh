@@ -14,32 +14,35 @@ commit="$(git rev-parse HEAD)"
 mkdir -p "$OUTPUT_DIR"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/gocache-first" "$tmp/gocache-second"
 targets=("linux amd64" "linux arm64" "darwin arm64" "windows amd64")
 build_one() {
-  local goos="$1" goarch="$2" destination="$3"
+  local goos="$1" goarch="$2" destination="$3" cache_dir="$4"
   local filename="nexusq-keyprovider-${goos}-${goarch}"
   [[ "$goos" == "windows" ]] && filename+=".exe"
-  GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -s -w" -o "$destination/$filename" .
+  GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=readonly GOCACHE="$cache_dir" \
+    GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
+    go build -trimpath -buildvcs=false -ldflags="-buildid= -s -w" -o "$destination/$filename" .
 }
 for target in "${targets[@]}"; do
   read -r goos goarch <<<"$target"
-  echo "Building $goos/$goarch (first pass)"
-  build_one "$goos" "$goarch" "$OUTPUT_DIR"
-  echo "Building $goos/$goarch (reproducibility pass)"
-  build_one "$goos" "$goarch" "$tmp"
+  echo "Building $goos/$goarch (isolated cache, first pass)"
+  build_one "$goos" "$goarch" "$OUTPUT_DIR" "$tmp/gocache-first"
+  echo "Building $goos/$goarch (independent cache, second pass)"
+  build_one "$goos" "$goarch" "$tmp" "$tmp/gocache-second"
   filename="nexusq-keyprovider-${goos}-${goarch}"
   [[ "$goos" == "windows" ]] && filename+=".exe"
-  cmp -s "$OUTPUT_DIR/$filename" "$tmp/$filename" || { echo "error: repeated builds differ for $goos/$goarch" >&2; exit 1; }
+  cmp -s "$OUTPUT_DIR/$filename" "$tmp/$filename" || { echo "error: independent-cache builds differ for $goos/$goarch" >&2; exit 1; }
 done
 (cd "$OUTPUT_DIR" && sha256sum nexusq-keyprovider-* > SHA256SUMS)
 cat > "$OUTPUT_DIR/BUILD-INFO.txt" <<INFO
 Project: github.com/lecodev-26/nexusq-keyprovider
 Source commit: $commit
-Go toolchain: $actual_go
-Build command: GOOS=<target> GOARCH=<target> CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -s -w"
+Go toolchain: $actual_go (GOTOOLCHAIN=local)
+Build command: GOWORK=off GOFLAGS=-mod=readonly GOOS=<target> GOARCH=<target> CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-buildid= -s -w"
 Targets: linux/amd64 linux/arm64 darwin/arm64 windows/amd64
-Reproducibility check: each target built twice in this environment; byte-for-byte comparison passed
+Reproducibility check: each target built twice using separate, initially empty GOCACHE directories; byte-for-byte comparison passed
 Checksums: SHA256SUMS (SHA-256)
 INFO
-echo "Builds and repeated-build comparisons passed. Artifacts: $OUTPUT_DIR/"
+echo "Builds and independent-cache comparisons passed. Artifacts: $OUTPUT_DIR/"
 echo "This is local build evidence, not a signed attestation or independent reproducible-build verification."

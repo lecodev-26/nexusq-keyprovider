@@ -2,13 +2,14 @@
 
 ## Scope
 
-Prebuilt release binaries are not currently published. This procedure creates local cross-platform candidates and checks that two builds made in the same environment are byte-for-byte identical. This is a determinism check, **not** an independent reproducible-build attestation; another operator must rebuild the same commit and compare hashes.
+Prebuilt release binaries are not currently published. CI creates release candidates, checks repeatability, rebuilds them on a separate GitHub-hosted runner, and retains verification evidence. This is stronger cross-runner evidence, **not an independent operator or third-party reproducible-build audit**.
 
 ## Pinned build environment
 
 - Go toolchain: **go1.27.2** (exact version required by the release script).
 - Module language/toolchain floor: Go 1.26.0 as declared in `go.mod`.
-- CGO disabled; build flags: `-trimpath -buildvcs=false -ldflags="-buildid= -s -w"`.
+- `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=-mod=readonly`, CGO disabled, `-trimpath`, `-buildvcs=false`, and `-ldflags="-buildid= -s -w"`.
+- Each target is built twice using separate, initially empty Go build-cache directories.
 - Targets: Linux AMD64, Linux ARM64, macOS ARM64, Windows AMD64.
 
 Update `scripts/release-build.sh`, CI, and this document together when changing the exact toolchain pin.
@@ -25,16 +26,39 @@ go vet ./...
 bash scripts/release-build.sh
 ```
 
-The script refuses a dirty Git worktree or a Go version other than go1.27.2. It builds each target twice and compares files byte-for-byte. Outputs, `SHA256SUMS`, and `BUILD-INFO.txt` are written to ignored `dist/`. In CI, the release-build job additionally creates an SPDX JSON source SBOM, refreshes the checksums to cover the four binaries and SBOM, and packages the binaries, SBOM, checksums, and build metadata into `nexusq-keyprovider-release-candidates.tar.gz`.
+The script refuses a dirty Git worktree or a Go version other than go1.27.2. It builds each target twice with independent empty `GOCACHE` directories and compares files byte-for-byte. Outputs, `SHA256SUMS`, and `BUILD-INFO.txt` are written to ignored `dist/`.
 
-## Verify checksums
+## SBOMs and build-environment inventory
+
+The release-build CI job produces three distinct SPDX 2.3 JSON documents:
+
+1. `sbom-source.spdx.json` — the checked-out source workspace and detected project dependencies.
+2. `sbom-release-artifacts.spdx.json` — the four compiled release binaries, scanned separately by Syft.
+3. `sbom-ci-environment.spdx.json` — direct actions used by the release-build job and directly invoked build tools, with versions/resolved references.
+
+Syft is pinned to `v1.55.0`. `BUILD-ENVIRONMENT.txt` records the runner image metadata, OS, Go environment/module graph, and direct action/tool versions. The CI environment SPDX inventory deliberately does **not** claim to enumerate every preinstalled package in the GitHub runner image, transitive dependencies bundled inside each action, GitHub service internals, or the external NEXUS-Q deployment. Those remain outside its scope.
+
+The release candidate tarball includes all three SBOMs, the environment manifest, checksums, build metadata, and four binaries. The workflow separately attests the source, release-binary, and CI-environment SBOMs and the tarball's SLSA build provenance. The tarball and Sigstore bundles are retained as workflow artifacts for 30 days; no GitHub Release is published automatically.
+
+## Verify checksums and attestations
+
+After downloading and extracting the workflow artifact:
 
 ```sh
-cd dist
+cd extracted-bundle
 sha256sum --check SHA256SUMS
+gh attestation trusted-root > trusted_root.jsonl
+gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://slsa.dev/provenance/v1 --bundle provenance.sigstore.json --custom-trusted-root trusted_root.jsonl
+gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://spdx.dev/Document/v2.3 --bundle source-sbom-attestation.sigstore.json --custom-trusted-root trusted_root.jsonl
+gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://spdx.dev/Document/v2.3 --bundle release-sbom-attestation.sigstore.json --custom-trusted-root trusted_root.jsonl
+gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://spdx.dev/Document/v2.3 --bundle ci-sbom-attestation.sigstore.json --custom-trusted-root trusted_root.jsonl
 ```
 
-For independent verification, a second operator should check out the exact source commit in `BUILD-INFO.txt`, use the same Go toolchain and build command in a separate clean environment, run the script, and compare SHA-256 hashes. Record OS/container image and toolchain provenance.
+The second GitHub-hosted runner verifies all four attestations, verifies the bundle checksums, rebuilds the same source commit with fresh caches, and compares the four binaries byte-for-byte. It uploads an independent rebuild report for 30 days. This demonstrates cross-runner agreement inside GitHub Actions, not independence from GitHub, the repository maintainer, or the CI workflow itself.
+
+## Runtime validation
+
+Cross-compilation is not runtime testing. The CI workflow also runs the provider's OpenTofu 1.13.2 protocol, local-state/saved-plan, DEK recovery/rotation, and HTTP remote-state recovery E2E suite on native macOS 15 ARM64 and Windows Server 2025 AMD64 runners. The Linux compatibility matrix remains separately documented in [OpenTofu compatibility](OPENTOFU-COMPATIBILITY.md). These native jobs use a test-only NEXUS-Q API fixture; they do not test a production NEXUS-Q deployment or AWS S3.
 
 ## Artifact names
 
@@ -43,26 +67,15 @@ For independent verification, a second operator should check out the exact sourc
 - `nexusq-keyprovider-darwin-arm64`
 - `nexusq-keyprovider-windows-amd64.exe`
 
-Cross-compilation is not runtime testing. OpenTofu E2E runtime tests currently run only on Linux AMD64 and ARM64.
-
 ## Compatibility boundary
 
-The core automated OpenTofu E2E suite currently tests **1.12.11 on Linux AMD64** and **1.13.2 on Linux AMD64/ARM64**. The S3Mock and real NEXUS-Q service E2E suites remain pinned to 1.13.2. See the [OpenTofu compatibility matrix](OPENTOFU-COMPATIBILITY.md) for exact scope. Other patches/releases and runtime behavior on macOS/Windows must not be claimed until dedicated CI/runtime tests pass.
+The core Linux E2E matrix tests **1.12.11 on Linux AMD64** and **1.13.2 on Linux AMD64/ARM64**. Native runtime jobs test **1.13.2 on macOS 15 ARM64 and Windows Server 2025 AMD64**. S3Mock and real NEXUS-Q service E2E remain on Linux with OpenTofu 1.13.2. Other patches/releases and other operating-system versions must not be claimed until dedicated tests pass.
 
-## CI SBOM, artifact and attestation
+## Remaining external validation
 
-The `release-build-repro` CI job scans the source workspace with Anchore Syft and emits `sbom.spdx.json` (SPDX JSON). It creates a release-candidate tarball containing the four cross-platform binaries, the SBOM, `SHA256SUMS`, and `BUILD-INFO.txt`. The tarball is uploaded as a workflow artifact with a 30-day retention period; it is not a published GitHub Release.
+- A separate operator must reproduce the build outside this repository's GitHub Actions workflow and record the result.
+- An independent security auditor must review the design, implementation, CI and operational controls before any production-readiness claim.
+- Real AWS S3, IAM, versioning, locking, Object Lock, SSE-KMS, and recovery behavior require an authorized AWS test account; S3Mock is not equivalent.
+- A full inventory of every preinstalled runner package and every transitive dependency inside GitHub Actions is not currently produced. The current CI SBOM covers direct release-build actions and directly invoked build tools only.
 
-GitHub Actions generates separate signed SLSA build-provenance and SPDX SBOM attestations for the tarball. On a public repository, GitHub's attestation service uses Sigstore-backed signing.
-
-The workflow preserves both Sigstore bundles beside the tarball in the downloadable workflow artifact. The second runner fetches the Sigstore trusted root and verifies both attestations before it performs the independent rebuild comparison. After downloading and extracting the workflow artifact, a user can repeat the verification with:
-
-```sh
-gh attestation trusted-root > trusted_root.jsonl
-gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://slsa.dev/provenance/v1 --bundle provenance.sigstore.json --custom-trusted-root trusted_root.jsonl
-gh attestation verify nexusq-keyprovider-release-candidates.tar.gz --repo lecodev-26/nexusq-keyprovider --predicate-type https://spdx.dev/Document/v2.3 --bundle sbom-attestation.sigstore.json --custom-trusted-root trusted_root.jsonl
-```
-
-The attestation authenticates the workflow provenance and the tarball digest; it does not constitute a security audit or a signature embedded in each executable. The SBOM is a source-workspace inventory generated by Syft; it is not a complete inventory of GitHub-hosted runner software, CI actions, the Rust toolchain used to test NEXUS-Q, or a deployed NEXUS-Q service.
-
-SHA-256 checksums detect artifact changes only when the checksum file is obtained through a trusted channel; they do not authenticate the publisher by themselves. No GitHub Release is published automatically. Keep release publication and any production-readiness claim subject to independent review.
+SHA-256 checksums detect artifact changes only when the checksum file is obtained through a trusted channel; they do not authenticate the publisher by themselves. Attestations authenticate workflow provenance and SBOM associations, not the correctness or security of the implementation. Keep release publication and any production-readiness claim subject to independent review.

@@ -5,6 +5,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 MOCK_PID=""
 BACKEND_PID=""
+PYTHON_BIN="${PYTHON:-python3}"
+PROVIDER_NAME="nexusq-keyprovider"
+MOCK_NAME="mock-nexusq"
+if [[ "${OS:-}" == "Windows_NT" || "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  PROVIDER_NAME+=".exe"
+  MOCK_NAME+=".exe"
+fi
 
 cleanup() {
   [[ -z "$BACKEND_PID" ]] || kill "$BACKEND_PID" 2>/dev/null || true
@@ -45,25 +52,32 @@ wait_for_mock() {
 echo "== Build provider and test-only NEXUS-Q API fixture =="
 (
   cd "$ROOT"
-  go build -trimpath -o "$TMP/nexusq-keyprovider" .
-  go build -trimpath -o "$TMP/mock-nexusq" ./integration/mock-nexusq
+  go build -trimpath -o "$TMP/$PROVIDER_NAME" .
+  go build -trimpath -o "$TMP/$MOCK_NAME" ./integration/mock-nexusq
 )
-chmod +x "$TMP/nexusq-keyprovider"
+if [[ "$PROVIDER_NAME" != *.exe ]]; then chmod +x "$TMP/$PROVIDER_NAME"; fi
 
-"$TMP/mock-nexusq" >"$TMP/mock-nexusq.log" 2>&1 &
+"$TMP/$MOCK_NAME" >"$TMP/mock-nexusq.log" 2>&1 &
 MOCK_PID=$!
 wait_for_mock
+
+PROVIDER_PATH="$TMP/$PROVIDER_NAME"
+TMP_NATIVE="$TMP"
+if [[ "$PROVIDER_NAME" == *.exe ]]; then
+  PROVIDER_PATH="$(cygpath -m "$PROVIDER_PATH")"
+  TMP_NATIVE="$(cygpath -m "$TMP")"
+fi
 
 export NEXUSQ_URL="http://127.0.0.1:18443"
 export NEXUSQ_TOKEN="integration-test-token"
 export NEXUSQ_KEY_ID="integration-key-v1"
 export NEXUSQ_CONTEXT_ID="integration-e2e-state"
-export NEXUSQ_HTTP_BACKEND_STATE="$TMP/remote.tfstate"
-export NEXUSQ_HTTP_BACKEND_LOCK="$TMP/remote.lock"
+export NEXUSQ_HTTP_BACKEND_STATE="$TMP_NATIVE/remote.tfstate"
+export NEXUSQ_HTTP_BACKEND_LOCK="$TMP_NATIVE/remote.lock"
 
 echo "== Local state and saved-plan encryption =="
 mkdir "$TMP/local"
-sed "s|/absolute/path/to/nexusq-keyprovider|$TMP/nexusq-keyprovider|g" \
+sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
   "$ROOT/integration/main.tf" > "$TMP/local/main.tf"
 (
   cd "$TMP/local"
@@ -91,7 +105,7 @@ export NEXUSQ_KEY_ID="integration-key-v2"
   grep -q '"terraform_data.example"' "$TMP/rotated-state.json"
 )
 curl --fail --silent http://127.0.0.1:18443/stats > "$TMP/mock-stats.json"
-python3 - "$TMP/mock-stats.json" <<'PY'
+"$PYTHON_BIN" - "$TMP/mock-stats.json" <<'PY'
 import json, sys
 stats = json.load(open(sys.argv[1], encoding="utf-8"))
 if stats["encrypt_calls"] < 2 or stats["decrypt_calls"] < 1:
@@ -101,7 +115,7 @@ PY
 
 echo "== HTTP remote-state persistence and clean-workdir recovery =="
 start_backend() {
-  python3 -u "$ROOT/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
+  "$PYTHON_BIN" -u "$ROOT/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
   BACKEND_PID=$!
   wait_for_url http://127.0.0.1:18444/health
 }
@@ -112,7 +126,7 @@ stop_backend() {
 }
 start_backend
 mkdir "$TMP/remote-write"
-sed "s|/absolute/path/to/nexusq-keyprovider|$TMP/nexusq-keyprovider|g" \
+sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
   "$ROOT/integration/remote-http.tf" > "$TMP/remote-write/main.tf"
 (
   cd "$TMP/remote-write"
@@ -125,7 +139,7 @@ fail_if_contains "$NEXUSQ_HTTP_BACKEND_STATE" "replace-me"
 stop_backend
 start_backend
 mkdir "$TMP/remote-read"
-sed "s|/absolute/path/to/nexusq-keyprovider|$TMP/nexusq-keyprovider|g" \
+sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
   "$ROOT/integration/remote-http.tf" > "$TMP/remote-read/main.tf"
 (
   cd "$TMP/remote-read"

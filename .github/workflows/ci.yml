@@ -91,7 +91,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
@@ -101,46 +101,86 @@ jobs:
           cache: false
       - name: Verify release build toolchain
         run: test "$(go version | awk '{print $3}')" = 'go1.27.2'
-      - name: Build all release targets twice and compare
-        run: bash scripts/release-build.sh
-      - name: Verify generated SHA-256 checksums
-        working-directory: dist
-        run: sha256sum --check SHA256SUMS
+      - name: Prepare release output directory
+        run: mkdir -p dist
       - name: Generate source SBOM (SPDX JSON)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           path: .
           format: spdx-json
-          output-file: dist/sbom.spdx.json
-          artifact-name: nexusq-keyprovider-sbom.spdx.json
-          upload-artifact: true
+          output-file: dist/sbom-source.spdx.json
+          artifact-name: nexusq-keyprovider-source-sbom.spdx.json
+          syft-version: v1.55.0
+          upload-artifact: false
           upload-release-assets: false
+      - name: Build all release targets twice with isolated caches
+        run: bash scripts/release-build.sh
+      - name: Verify generated SHA-256 checksums
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+      - name: Stage release binaries for SBOM scan
+        run: |
+          mkdir -p dist/release-binaries
+          cp dist/nexusq-keyprovider-* dist/release-binaries/
+      - name: Generate release-binary SBOM (SPDX JSON)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: dist/release-binaries
+          format: spdx-json
+          output-file: dist/sbom-release-artifacts.spdx.json
+          artifact-name: nexusq-keyprovider-release-artifacts-sbom.spdx.json
+          syft-version: v1.55.0
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Remove temporary SBOM scan staging directory
+        run: rm -rf dist/release-binaries
+      - name: Inventory direct CI build actions and tools (SPDX JSON)
+        env:
+          SYFT_VERSION: v1.55.0
+        run: python3 scripts/generate-ci-sbom.py --output dist/sbom-ci-environment.spdx.json --manifest dist/BUILD-ENVIRONMENT.txt --syft-version "$SYFT_VERSION"
       - name: Refresh checksums and assemble release candidate bundle
         run: |
           set -euo pipefail
           cd dist
-          sha256sum nexusq-keyprovider-* sbom.spdx.json > SHA256SUMS
+          sha256sum nexusq-keyprovider-* sbom-source.spdx.json sbom-release-artifacts.spdx.json sbom-ci-environment.spdx.json BUILD-INFO.txt BUILD-ENVIRONMENT.txt > SHA256SUMS
           tar -czf nexusq-keyprovider-release-candidates.tar.gz \
             nexusq-keyprovider-linux-amd64 \
             nexusq-keyprovider-linux-arm64 \
             nexusq-keyprovider-darwin-arm64 \
             nexusq-keyprovider-windows-amd64.exe \
-            sbom.spdx.json SHA256SUMS BUILD-INFO.txt
+            sbom-source.spdx.json \
+            sbom-release-artifacts.spdx.json \
+            sbom-ci-environment.spdx.json \
+            SHA256SUMS BUILD-INFO.txt BUILD-ENVIRONMENT.txt
       - name: Generate signed build provenance
         id: provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
-      - name: Generate signed SBOM attestation
-        id: sbom_attest
+      - name: Attest source SBOM
+        id: sbom_source
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
-          sbom-path: dist/sbom.spdx.json
+          sbom-path: dist/sbom-source.spdx.json
+      - name: Attest release-binary SBOM
+        id: sbom_release
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          sbom-path: dist/sbom-release-artifacts.spdx.json
+      - name: Attest CI-environment SBOM
+        id: sbom_ci
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          sbom-path: dist/sbom-ci-environment.spdx.json
       - name: Preserve Sigstore bundles for independent verification
         run: |
           cp "${{ steps.provenance.outputs.bundle-path }}" dist/provenance.sigstore.json
-          cp "${{ steps.sbom_attest.outputs.bundle-path }}" dist/sbom-attestation.sigstore.json
+          cp "${{ steps.sbom_source.outputs.bundle-path }}" dist/source-sbom-attestation.sigstore.json
+          cp "${{ steps.sbom_release.outputs.bundle-path }}" dist/release-sbom-attestation.sigstore.json
+          cp "${{ steps.sbom_ci.outputs.bundle-path }}" dist/ci-sbom-attestation.sigstore.json
       - name: Upload release candidate bundle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -148,7 +188,9 @@ jobs:
           path: |
             dist/nexusq-keyprovider-release-candidates.tar.gz
             dist/provenance.sigstore.json
-            dist/sbom-attestation.sigstore.json
+            dist/source-sbom-attestation.sigstore.json
+            dist/release-sbom-attestation.sigstore.json
+            dist/ci-sbom-attestation.sigstore.json
           if-no-files-found: error
           retention-days: 30
 
@@ -156,7 +198,7 @@ jobs:
     name: Independent runner rebuild comparison
     needs: release-build-repro
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -187,26 +229,59 @@ jobs:
             --predicate-type https://slsa.dev/provenance/v1 \
             --bundle "$RUNNER_TEMP/candidate/provenance.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
-      - name: Verify signed SBOM attestation on the separate runner
+      - name: Verify source SBOM attestation on the separate runner
         run: |
           gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
             --repo lecodev-26/nexusq-keyprovider \
             --predicate-type https://spdx.dev/Document/v2.3 \
-            --bundle "$RUNNER_TEMP/candidate/sbom-attestation.sigstore.json" \
+            --bundle "$RUNNER_TEMP/candidate/source-sbom-attestation.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
-      - name: Rebuild on a separate GitHub-hosted runner
+      - name: Verify release-binary SBOM attestation on the separate runner
+        run: |
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+            --repo lecodev-26/nexusq-keyprovider \
+            --predicate-type https://spdx.dev/Document/v2.3 \
+            --bundle "$RUNNER_TEMP/candidate/release-sbom-attestation.sigstore.json" \
+            --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
+      - name: Verify CI-environment SBOM attestation on the separate runner
+        run: |
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+            --repo lecodev-26/nexusq-keyprovider \
+            --predicate-type https://spdx.dev/Document/v2.3 \
+            --bundle "$RUNNER_TEMP/candidate/ci-sbom-attestation.sigstore.json" \
+            --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
+      - name: Rebuild on a separate runner with fresh Go caches
         run: bash scripts/release-build.sh "$RUNNER_TEMP/rebuilt"
       - name: Compare independent build outputs byte-for-byte
         run: |
           set -euo pipefail
+          report="$RUNNER_TEMP/independent-rebuild-report.txt"
+          {
+            echo "Source commit: $(git rev-parse HEAD)"
+            echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+            echo "OS: $(. /etc/os-release && echo "$PRETTY_NAME")"
+            echo "Go: $(go version)"
+            echo "Go environment: $(go env GOOS GOARCH CGO_ENABLED GOTOOLCHAIN GOWORK GOFLAGS | tr '\n' ' ')"
+            echo "Primary build environment:"
+            cat "$RUNNER_TEMP/expected/BUILD-ENVIRONMENT.txt"
+          } > "$report"
           for file in \
             nexusq-keyprovider-linux-amd64 \
             nexusq-keyprovider-linux-arm64 \
             nexusq-keyprovider-darwin-arm64 \
             nexusq-keyprovider-windows-amd64.exe; do
             cmp "$RUNNER_TEMP/expected/$file" "$RUNNER_TEMP/rebuilt/$file"
+            printf '%s  %s\n' "$(sha256sum "$RUNNER_TEMP/rebuilt/$file" | awk '{print $1}')" "$file" >> "$report"
           done
-          echo "All four binaries match byte-for-byte across separate GitHub-hosted runners."
+          echo "Result: all four binaries match byte-for-byte across separate GitHub-hosted runners with independent empty Go caches." >> "$report"
+          cat "$report"
+      - name: Upload independent rebuild evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nexusq-keyprovider-independent-rebuild-report
+          path: ${{ runner.temp }}/independent-rebuild-report.txt
+          if-no-files-found: error
+          retention-days: 30
 
   e2e:
     name: OpenTofu E2E (${{ matrix.tofu_version }} / Linux ${{ matrix.arch }})
@@ -250,6 +325,47 @@ jobs:
           sudo install -m 0755 "$RUNNER_TEMP/opentofu/tofu" /usr/local/bin/tofu
           tofu version
       - name: Run end-to-end integration suite
+        run: bash integration/e2e.sh
+
+  native-runtime:
+    name: Native runtime E2E (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macOS 15 ARM64
+            python: python3
+          - runner: windows-2025
+            platform: Windows Server 2025 AMD64
+            python: python
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.2'
+          check-latest: false
+          cache: false
+      - uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: '1.13.2'
+          tofu_wrapper: false
+      - name: Verify native toolchain
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          go version
+          tofu version
+          "$PYTHON" --version
+      - name: Run native Go tests and vet
+        run: |
+          go test -count=1 ./...
+          go vet ./...
+      - name: Run native OpenTofu provider protocol and recovery E2E
+        env:
+          PYTHON: ${{ matrix.python }}
         run: bash integration/e2e.sh
 
   s3mock-e2e:

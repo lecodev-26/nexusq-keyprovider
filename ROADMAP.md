@@ -35,26 +35,29 @@ The reproducible validation procedure is documented in [AWS S3 validation runboo
 
 ## P4 — Quality, compatibility, and distribution
 
-**Status: in progress; CI SBOM and signed artifact provenance added.**
+**Status: technical checks expanded; external validations remain pending.**
 
-Completed in this increment:
+Completed and automated:
 
 - Added a pinned Go 1.27.2 release-build script for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
-- The script requires a clean checkout, builds each target twice, compares outputs byte-for-byte, and generates SHA-256 checksums and build metadata.
-- Added a CI job that runs the same build procedure and verifies the checksums.
-- Documented the procedure and its limitations in [Release build and verification](docs/RELEASE-BUILDS.md).
-- Added an SPDX JSON source SBOM, a release-candidate bundle, and a GitHub-signed artifact attestation (build provenance with SBOM association) to the release-build CI job. The bundle is retained as a workflow artifact for 30 days; no GitHub Release is published automatically.
-- Added a second GitHub-hosted runner job that rebuilds the same commit and compares all four binaries byte-for-byte with the primary runner's bundle.
-- Added Linux/macOS/Windows build and install guidance, environment setup, upgrade/rollback precautions, and troubleshooting in [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md).
+- Each target is built twice using separate, initially empty Go build-cache directories; checksums and build metadata are generated.
+- A second GitHub-hosted runner rebuilds the same commit with fresh caches, verifies the release bundle and all attestations, compares all four binaries byte-for-byte, and uploads a comparison report.
+- Added three separate SPDX 2.3 inventories: source workspace, compiled release binaries, and direct release-build CI actions/tools. Syft is pinned to v1.55.0.
+- Added a build-environment manifest with runner image metadata, OS, Go environment/module graph, and direct action/tool references.
+- Added signed attestations for SLSA build provenance and each of the three SBOMs; the second runner verifies each Sigstore bundle.
+- Added native OpenTofu 1.13.2 runtime E2E jobs on macOS 15 ARM64 and Windows Server 2025 AMD64, including provider protocol, local state/saved plans, DEK recovery/rotation, and HTTP remote-state recovery using test fixtures.
+- Added Linux/macOS/Windows installation guidance, environment setup, upgrade/rollback precautions, and troubleshooting in [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md).
 
-Still pending:
+Scope and remaining limitations:
 
-1. Keep the OpenTofu compatibility matrix current as supported patch releases change; the core E2E suite now covers 1.12.11 (Linux AMD64) and 1.13.2 (Linux AMD64/ARM64). The S3Mock and real-service suites remain on 1.13.2.
-2. Obtain independent reproducible-build verification from a separate operator or environment outside this repository's GitHub Actions workflow; the current second-runner comparison is not a third-party audit.
-3. Obtain independent attestation verification outside this repository's GitHub Actions workflow; CI now verifies both Sigstore bundles on a separate runner.
-4. Validate the installation instructions on clean Linux, macOS, and Windows hosts; documentation exists, but macOS/Windows runtime behavior is not yet tested.
-5. Add runtime testing on macOS/Windows before claiming those platforms as runtime-validated.
-6. Review whether a source-workspace SBOM is sufficient for the intended release process; expand scope if binary/runtime or CI-toolchain inventories are required.
+1. The CI environment SBOM inventories direct actions in the release-build job and directly invoked build tools. It does not enumerate every preinstalled GitHub runner package, action-internal transitive dependency, GitHub service component, or NEXUS-Q deployment dependency.
+2. Cross-runner reproducibility remains inside GitHub Actions. A separate operator must reproduce the build outside this workflow and record the result.
+3. macOS/Windows runtime coverage is limited to the exact tested runner labels and OpenTofu 1.13.2; it does not imply compatibility with all OS releases, architectures, or OpenTofu patches.
+4. Arrange an independent security review before making any production-readiness claim.
+5. Execute the [AWS S3 validation runbook](docs/AWS-S3-VALIDATION.md) in an authorized disposable AWS account. It remains a prepared procedure, not evidence that AWS tests have passed.
+6. Keep the OpenTofu compatibility matrix current as supported patch releases change; the exact tested versions and scope are recorded in [OpenTofu compatibility](docs/OPENTOFU-COMPATIBILITY.md).
+
+The release candidate and verification evidence are retained as 30-day workflow artifacts; no GitHub Release is published automatically. See [Release build and verification](docs/RELEASE-BUILDS.md) for the precise SBOM, attestation, reproducibility, and runtime-validation boundaries.
 
 ## P5 — External review
 

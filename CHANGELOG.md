@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Generate an SPDX JSON source SBOM and a release-candidate bundle in CI; attach separate GitHub-signed build-provenance and SBOM attestations and upload the bundle as a 30-day workflow artifact. No GitHub Release is published automatically.
+- Generate separate SPDX 2.3 SBOMs for source, release binaries, and direct CI build actions/tools; pin Syft v1.55.0 and attest each SBOM plus SLSA build provenance. Record the CI build environment and retain the release candidate and verification bundles for 30 days; no GitHub Release is published automatically.
+- Run native OpenTofu 1.13.2 provider runtime E2E on macOS 15 ARM64 and Windows Server 2025 AMD64.
+- Strengthen release reproducibility checks with separate empty Go build caches on each runner and retain an independent-runner byte-comparison report; this remains GitHub Actions-internal evidence, not third-party verification.
 
 - Add platform-specific build/install guidance, upgrade and rollback cautions, and a troubleshooting reference.
 - Expand core OpenTofu E2E coverage to 1.12.11 on Linux AMD64 while retaining 1.13.2 coverage on AMD64/ARM64; document exact compatibility boundaries.

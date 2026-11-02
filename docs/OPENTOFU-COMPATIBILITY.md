@@ -7,9 +7,9 @@ The provider implements the OpenTofu External Key Provider protocol v1. Compatib
 | OpenTofu version | Status | Test coverage | Runner |
 | --- | --- | --- | --- |
 | 1.12.11 | CI E2E tested | Local state encryption, saved plans, previous-key recovery/rotation, HTTP remote-state persistence and clean-workdir recovery | Linux AMD64 |
-| 1.13.2 | CI E2E tested | Same E2E suite; additionally S3Mock backend E2E and real NEXUS-Q service E2E | Linux AMD64 and ARM64 |
+| 1.13.2 | CI E2E tested | Core E2E on Linux; S3Mock and real NEXUS-Q service E2E on Linux; native provider protocol/state/saved-plan/HTTP recovery E2E on macOS and Windows | Linux AMD64/ARM64, macOS 15 ARM64, Windows Server 2025 AMD64 |
 
-These are exact tested patch versions. They do not imply that every patch in either minor series, earlier versions, future releases, or other operating systems are compatible.
+These are exact tested patch versions and runner environments. They do not imply that every patch in either minor series, earlier versions, future releases, or other operating systems/architectures are compatible.
 
 ## Version selection
 
@@ -39,6 +39,6 @@ For the real NEXUS-Q service integration (currently exercised in CI on 1.13.2 on
 - A new patch pin must pass the full relevant E2E suite before the tested version is updated in documentation.
 - When a minor series reaches end of security support, reassess whether to keep it in the matrix; do not silently imply active upstream support.
 - Add new OpenTofu versions to the matrix only after the exact binary is available and the tests pass.
-- Linux AMD64/ARM64 runtime evidence does not establish macOS/Windows runtime compatibility.
+- macOS 15 ARM64 and Windows Server 2025 AMD64 have native runtime evidence for OpenTofu 1.13.2 only; this does not establish compatibility with other OS releases, architectures, or OpenTofu versions.
 
 Upstream references: [OpenTofu releases](https://github.com/opentofu/opentofu/releases) and [OpenTofu release lifecycle](https://endoflife.date/opentofu).

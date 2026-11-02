@@ -125,4 +125,4 @@ The provider has a 15-second HTTP timeout and rejects redirects. It fails closed
 
 ## Evidence and support boundaries
 
-The core E2E compatibility matrix currently covers OpenTofu 1.12.11 on Linux AMD64 and 1.13.2 on Linux AMD64/ARM64. The S3Mock and real NEXUS-Q E2E suites currently run on 1.13.2. These tests do not establish macOS/Windows runtime support or real AWS S3 compatibility. See [ROADMAP.md](../ROADMAP.md), [OpenTofu compatibility](OPENTOFU-COMPATIBILITY.md), and the [AWS S3 validation runbook](AWS-S3-VALIDATION.md).
+The core E2E compatibility matrix covers OpenTofu 1.12.11 on Linux AMD64 and 1.13.2 on Linux AMD64/ARM64. Native provider runtime E2E also covers OpenTofu 1.13.2 on macOS 15 ARM64 and Windows Server 2025 AMD64. The S3Mock and real NEXUS-Q E2E suites remain on Linux with 1.13.2. These tests do not establish real AWS S3 compatibility or support for other OS releases/architectures. See [ROADMAP.md](../ROADMAP.md), [OpenTofu compatibility](OPENTOFU-COMPATIBILITY.md), and the [AWS S3 validation runbook](AWS-S3-VALIDATION.md).
