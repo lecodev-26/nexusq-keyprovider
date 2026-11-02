@@ -30,6 +30,7 @@ This keeps key wrapping separate from the infrastructure tool and avoids embeddi
 - **Implemented:** OpenTofu External Key Provider protocol v1.
 - **Implemented:** NEXUS-Q envelope API integration for wrapping and recovering 32-byte DEKs.
 - **Implemented:** initial key exchange, prior-key recovery, and key rotation behavior.
+- **Implemented:** v2 wrapped-DEK payloads bound to an operator-configured context ID, with v1 metadata rejected by default and an explicit migration opt-in.
 - **Not implemented:** adapters for Terraform, other IaC tools, cloud KMS services, or a generic provider framework.
 - **Not claimed:** production readiness, independent security audit, FIPS validation, or post-quantum certification.
 
@@ -37,12 +38,13 @@ The project is intentionally named for the integration layer it may grow into. O
 
 ## Validated behavior
 
-A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 4.1.2. The exercised scenarios included:
+Local end-to-end testing was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 4.1.2. The local and CI integration suites cover the following scenarios:
 
 - OpenTofu initialization and apply with state encryption enabled.
 - State refresh and decryption through `tofu show -json`.
 - Saved-plan encryption, inspection, and successful apply.
 - Wrapping-key rotation while retaining the ability to read state encrypted with the previous DEK.
+- Context mismatch rejection, tampered external context rejection using the encrypted payload assertion, and explicit legacy v1 migration in the real NEXUS-Q CI E2E suite.
 - Plaintext scans confirming the tested state and plan files did not contain the test resource name or test value.
 - Four concurrent local plan processes in independent workspace copies.
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
@@ -50,7 +52,7 @@ A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 
 
 The S3Mock test exercises the S3 API subset implemented by that local fixture. It is not AWS S3 validation and does not test IAM, bucket policies, versioning, SSE-KMS, replication, or S3 locking.
 
-The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. One CI E2E job runs OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64 with a test-only NEXUS-Q API substitute. A separate Linux AMD64 CI job builds the NEXUS-Q v4.1.2 CLI and server from a pinned source commit, creates an ephemeral vault and wrapping keys, and exercises the real authenticated API with state encryption, saved plans, previous-key recovery, key-ID rotation, server restart recovery, HTTP-backend persistence, and audit-chain verification. The real-service job uses only generated CI credentials and a temporary vault; it does not depend on repository secrets. Local statement coverage for the provider package is **80.6%** with the current Go test suite.
+The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. One CI E2E job runs OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64 with a test-only NEXUS-Q API substitute. A separate Linux AMD64 CI job builds the NEXUS-Q v4.1.2 CLI and server from a pinned source commit, creates an ephemeral vault and wrapping keys, and exercises the real authenticated API with state encryption, saved plans, previous-key recovery, key-ID rotation, server restart recovery, HTTP-backend persistence, audit-chain verification, wrong-context rejection, tampered external-context rejection, and explicit v1 migration. The real-service job uses only generated CI credentials and a temporary vault; it does not depend on repository secrets. Local statement coverage for the provider package is **80.6%** with the current Go test suite.
 
 These results describe specific local tests. They do not establish compatibility with production remote backend services, all OpenTofu versions, sustained workloads, or distributed CI environments.
 
@@ -134,7 +136,7 @@ The executable reads these environment variables:
 | `NEXUSQ_URL` | Yes | NEXUS-Q base URL. |
 | `NEXUSQ_TOKEN` | Yes | Bearer token for the protected API. |
 | `NEXUSQ_KEY_ID` | Yes | Active NEXUS-Q wrapping-key ID. |
-| `NEXUSQ_CONTEXT_ID` | Yes | Stable opaque identifier for this state trust domain; use a distinct value for each state that must be isolated. |
+| `NEXUSQ_CONTEXT_ID` | Yes | Stable opaque identifier for this state trust domain (1–128 ASCII letters, digits, `.`, `_`, `:`, or `-`); use a distinct random value for each state that must be isolated. |
 | `NEXUSQ_ALLOW_LEGACY_V1` | No | Set to `true` only during an intentional v1-to-v2 metadata migration. Defaults to `false`. |
 
 Example for a local development server:
@@ -143,6 +145,7 @@ Example for a local development server:
 export NEXUSQ_URL="http://127.0.0.1:8443"
 export NEXUSQ_TOKEN="<load-from-your-secret-manager>"
 export NEXUSQ_KEY_ID="<active-wrapping-key-id>"
+export NEXUSQ_CONTEXT_ID="<stable-random-id-for-this-state>"
 ```
 
 **Transport policy:** plain HTTP is accepted only for localhost/loopback addresses. Use HTTPS for remote NEXUS-Q endpoints. The provider does not follow HTTP redirects.
@@ -185,11 +188,13 @@ On an initial invocation:
 
 1. OpenTofu starts the executable and sends null provider metadata.
 2. The companion generates a fresh random 32-byte DEK.
-3. It sends the Base64-encoded DEK to NEXUS-Q `POST /v1/encrypt`.
-4. NEXUS-Q returns an envelope.
-5. The companion returns the DEK to OpenTofu and stores the envelope in provider metadata.
+3. It builds a versioned payload containing the DEK and configured context ID, then Base64-encodes that payload.
+4. It sends the encoded payload to NEXUS-Q `POST /v1/encrypt`, which returns an envelope.
+5. The companion returns the plaintext DEK to OpenTofu and stores the envelope plus visible context ID in provider metadata.
 
-On a subsequent invocation, the companion uses the prior envelope with NEXUS-Q `POST /v1/decrypt`, recovers the previous 32-byte DEK, generates and wraps a fresh DEK, and returns both keys in the provider response.
+On a subsequent invocation, the companion validates the metadata schema and visible context ID, decrypts the prior envelope through NEXUS-Q, then checks the context ID embedded inside the decrypted payload before returning any key material. Only after those checks succeed does it generate and wrap a fresh DEK, returning the fresh encryption key and previous decryption key to OpenTofu.
+
+The visible metadata context check is an early rejection; the context assertion inside the NEXUS-Q-encrypted payload is the cryptographic binding. The companion does not rely on NEXUS-Q decrypt returning authenticated envelope-header metadata.
 
 The v2 metadata contains a format version, the configured context ID, the NEXUS-Q envelope, and the wrapping-key ID. The DEK and context assertion are inside the encrypted NEXUS-Q payload; metadata does **not** contain the bearer token or plaintext DEK. Legacy v1 metadata is rejected by default. For a deliberate migration, set `NEXUSQ_ALLOW_LEGACY_V1=true` with the correct `NEXUSQ_CONTEXT_ID`, refresh and verify all dependent state and saved-plan artifacts, then unset the flag. v1 has no context binding, so the first migration is an operator-trusted transition and cannot retrospectively prove the legacy envelope origin.
 
@@ -200,7 +205,9 @@ The v2 metadata contains a format version, the configured context ID, the NEXUS-
 - The provider fails closed when configuration, metadata, API responses, or recovered key lengths are invalid.
 - NEXUS-Q responses are limited to 1 MiB; HTTP requests have a 15-second timeout.
 - The companion uses Go's standard library only; there are no third-party Go module dependencies in the current implementation.
-- Go byte slices are not guaranteed to be securely zeroized by this prototype.
+- Mutable byte buffers containing key material and request payloads are cleared when practical. This is best-effort hygiene; Go does not guarantee secure zeroization, and values may be copied or retained.
+- The configured context ID is not an identity authenticated by OpenTofu and does not prove a workspace, backend object key, or state lineage. It does not replace NEXUS-Q authorization or backend access controls.
+- Replaying or rolling back an older valid envelope within the same configured context is not prevented.
 - The bearer token authenticates the companion to NEXUS-Q; it is not per-user identity or mutual TLS.
 - Protect the NEXUS-Q server with appropriate network controls. Do not expose it directly to untrusted networks.
 - Keep old wrapping keys available for as long as encrypted artifacts depend on them.

@@ -1,50 +1,50 @@
 # Threat Model Review Notes
 
-**Review type:** internal design and integration review  
-**Project state:** experimental prototype  
-**Date:** 2026-11-02  
-**Independence:** this review was performed as part of project development. It is not an independent assessment, penetration test, or security audit.
+**Review type:** internal design and integration review
+**Project state:** experimental prototype
+**Date:** 2026-11-02
+**Independence:** performed as part of project development; not an independent assessment, penetration test, or security audit.
 
-## Scope
+## Scope and evidence
 
-This review considers the provider process, its OpenTofu External Key Provider boundary, the NEXUS-Q envelope API, provider metadata, and remote state storage. It does not assess the cryptographic implementation inside NEXUS-Q, OpenTofu internals, cloud-provider IAM implementations, or the security of a production deployment.
+This review considers the provider process, its OpenTofu External Key Provider boundary, NEXUS-Q envelope API, provider metadata, and remote state storage. It does not assess NEXUS-Q's internal cryptographic implementation, OpenTofu internals, cloud-provider IAM implementations, or a production deployment.
+
+The current implementation uses context-bound v2 metadata. The Go unit tests cover the metadata and payload validation paths; CI also runs OpenTofu integration suites with a test API fixture, S3Mock, and a separately built NEXUS-Q v4.1.2 service from a pinned source commit. These tests are integration evidence, not a security certification.
 
 ## Findings and recommended controls
 
-### TM-01 — Envelope metadata is not bound to a workspace or state lineage
+### TM-01 — Configured context binding is not authenticated workspace or state identity
 
-**Severity:** medium; deployment-dependent  
-**Status:** documented residual risk
+**Severity:** medium; deployment-dependent
+**Status:** v2 mitigation implemented; identity limitation remains
 
-The provider stores the NEXUS-Q envelope and wrapping-key ID in OpenTofu provider metadata. The provider does not add an authenticated binding to a workspace, backend key, state lineage, or deployment identity.
+V2 metadata carries a visible `context_id`, and the same identifier is embedded in the plaintext payload encrypted by NEXUS-Q. On recovery, the provider first compares the visible metadata value with the configured `NEXUSQ_CONTEXT_ID`, then decrypts the envelope and verifies the context assertion inside the decrypted payload before returning keys. Editing only the visible metadata value cannot change the encrypted assertion.
 
-A party able to replace or replay state artifacts and their associated metadata may cause rollback, substitution, or availability problems. The provider alone cannot distinguish an artifact copied from another authorized state context.
+This is a configured trust-domain binding, not proof of an OpenTofu workspace, backend object key, state lineage, account, or deployment identity. The External Key Provider process does not receive an authenticated identity for those objects. The operator provisions the context ID and must protect its configuration. Replaying or rolling back an older valid envelope within the same configured context is not prevented.
 
-**Controls:** isolate backend object paths and write permissions by trust domain; use separate NEXUS-Q vaults or narrowly scoped wrapping keys where stronger separation is required; enable backend versioning and recovery controls; protect state and saved-plan artifacts as sensitive data.
-
-**Future work:** evaluate context-bound envelope support in NEXUS-Q, with a stable and migration-safe context identifier. Do not derive security context from untrusted state metadata alone.
+**Controls:** assign a distinct random context ID to each state trust domain that must be isolated; keep it stable for the lifecycle of the associated state and saved plans; protect provider configuration and process environment; isolate backend object paths and write permissions; use separate NEXUS-Q vaults, tokens, or wrapping keys where stronger separation is required; enable backend versioning, audit, and recovery controls.
 
 ### TM-02 — Host compromise exposes plaintext DEKs and credentials
 
-**Severity:** high  
+**Severity:** high
 **Status:** inherent trust assumption
 
-The provider returns plaintext DEKs to OpenTofu and reads the NEXUS-Q bearer token from its process environment. A compromised host, privileged local process, debugger, malicious provider executable, or memory dump may recover them. Go does not guarantee zeroization of byte slices.
+The provider returns plaintext DEKs to OpenTofu and reads the NEXUS-Q bearer token from its process environment. A compromised host, privileged local process, debugger, malicious provider executable, or memory dump may recover them. The implementation clears mutable buffers when practical, but Go does not guarantee zeroization; values may be copied or retained.
 
 **Controls:** use a dedicated execution identity and host; restrict executable and configuration write access; keep tokens short-lived and narrowly scoped where supported; protect process environments and crash dumps; avoid running untrusted workloads under the same identity.
 
-### TM-03 — Bearer-token authority is not scoped by state identity
+### TM-03 — Bearer-token authority is not scoped by context ID
 
-**Severity:** medium; depends on NEXUS-Q token policy  
+**Severity:** medium; depends on NEXUS-Q token policy
 **Status:** documented residual risk
 
-The provider authenticates with one bearer token and does not supply mutual TLS or a per-workspace identity. If a token can wrap or unwrap arbitrary envelopes permitted by its NEXUS-Q policy, compromise of that token may affect more than one state.
+The provider authenticates with a bearer token and does not provide mutual TLS or a per-workspace identity. Context validation occurs after NEXUS-Q decrypts the envelope. A stolen token may therefore be used to unwrap any envelope allowed by its NEXUS-Q policy, even if the provider later rejects the decrypted payload because its context differs.
 
-**Controls:** use dedicated tokens and keys for separate environments or trust domains; grant only the required envelope operations; rotate and revoke tokens through NEXUS-Q operational controls; protect token delivery to the provider process.
+**Controls:** use dedicated tokens, vaults, and keys for separate environments or trust domains; grant only required envelope operations; rotate and revoke tokens through NEXUS-Q operational controls; protect token delivery to the provider process.
 
 ### TM-04 — Loopback HTTP trusts the local machine
 
-**Severity:** medium  
+**Severity:** medium
 **Status:** documented development exception
 
 HTTP is allowed for loopback NEXUS-Q endpoints to support local development and tests. A hostile process on the same host may observe or impersonate a loopback service depending on host isolation and process permissions.
@@ -53,28 +53,39 @@ HTTP is allowed for loopback NEXUS-Q endpoints to support local development and 
 
 ### TM-05 — S3-compatible backend behavior is not equivalent to AWS production validation
 
-**Severity:** medium  
+**Severity:** medium
 **Status:** validation boundary
 
-The Adobe S3Mock E2E fixture exercises OpenTofu's S3 backend against a local implementation of a subset of the S3 API. It is intended to validate encrypted state/plan interoperability, object persistence, and recovery after a service restart. It does not validate AWS IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, multi-region behavior, production TLS configuration, or distributed locking under contention.
+The CI S3 backend test exercises OpenTofu against an isolated Adobe S3Mock service. It checks encrypted state and saved-plan handling, plaintext-marker scans, recovery from a clean working directory after a service restart, and wrapping-key ID rotation. It does not validate AWS IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, multi-region behavior, production TLS configuration, or S3 locking under contention.
 
 **Controls:** for an AWS deployment, separately validate IAM least privilege, TLS, bucket policy, versioning, recovery, audit logging, and locking in a non-production account. Keep backend credentials in the AWS credential chain or a workload identity mechanism rather than embedding them in HCL or committed backend configuration.
 
 ### TM-06 — Backend storage controls are independent of application-layer encryption
 
-**Severity:** medium  
+**Severity:** medium
 **Status:** operational responsibility
 
-OpenTofu's enforced state/plan encryption protects the state and saved-plan payloads before they are stored by the backend. It does not protect backend credentials, object names, access patterns, logs, or every piece of backend metadata. Server-side encryption at the storage provider is an additional layer, not a replacement for OpenTofu encryption or NEXUS-Q key management.
+OpenTofu's enforced state and saved-plan encryption protects their payloads before they are stored by the backend. It does not protect backend credentials, object names, access patterns, logs, or every piece of backend metadata. Server-side encryption at the storage provider is an additional layer, not a replacement for OpenTofu encryption or NEXUS-Q key management.
 
 **Controls:** enforce TLS to remote S3 endpoints; configure storage-side encryption and access policies; enable versioning and appropriate retention/recovery controls; restrict read, write, and delete permissions; treat object names and access logs as potentially sensitive.
 
-## S3-compatible E2E acceptance boundary
+### TM-07 — Legacy v1 migration cannot establish historical context
 
-The CI test uses fixed, test-only credentials and a local S3Mock endpoint. It must never be configured with real infrastructure state or production credentials. It checks that the saved plan and stored remote state do not contain a known plaintext marker, that OpenTofu can recover state from a clean working directory after an S3Mock restart, and that the provider can recover an earlier DEK while rotating the wrapping-key ID.
+**Severity:** medium; migration-dependent
+**Status:** explicit opt-in implemented
 
-The test does not claim AWS S3 certification or validate S3 locking. The current fixture deliberately does not enable use_lockfile; concurrency and lock semantics remain separate validation work.
+Legacy v1 metadata contains no context assertion. It is rejected by default. When `NEXUSQ_ALLOW_LEGACY_V1=true` is explicitly enabled, the provider can recover the legacy DEK and immediately emit v2 metadata using the configured context. That first migration is a trust-on-operator transition: the provider cannot determine whether the v1 envelope was copied from another state before migration.
+
+**Controls:** migrate only artifacts with known provenance; back up state and saved plans first; configure the intended context ID; enable the flag only for the migration window; rewrite and verify all dependent state and saved-plan artifacts; retire obsolete artifacts and unset the flag; retain old NEXUS-Q wrapping keys until no retained artifact depends on them.
+
+## E2E acceptance and validation boundaries
+
+The local HTTP-backend fixture exercises the OpenTofu HTTP backend protocol and recovery using a loopback-only development service. It is not a production remote-backend validation.
+
+The S3Mock fixture uses generated test credentials and an isolated local service. It deliberately does not enable S3 locking. Neither the HTTP fixture nor S3Mock validates production cloud IAM, bucket policy, versioning, Object Lock, SSE-KMS, replication, lifecycle behavior, production TLS, or distributed locking.
+
+The real NEXUS-Q CI job builds NEXUS-Q v4.1.2 from a pinned source commit and uses ephemeral test vaults, credentials, and wrapping keys. It exercises authenticated API operations, explicit v1 migration, wrong-context rejection, tampered external-context rejection through the encrypted payload assertion, state and saved-plan flows, wrapping-key rotation, server restart recovery, HTTP-backend persistence, and audit verification. It does not replace independent review of NEXUS-Q or a production deployment.
 
 ## Review conclusion
 
-The principal risks remain the trusted-host assumption, bearer-token scope, lack of workspace/state-context binding, and deployment-level backend controls. The S3-compatible test improves integration evidence but does not reduce those architectural risks. The project remains experimental and requires independent security review before any production-readiness claim.
+Context-bound v2 metadata improves separation between configured trust domains, but it does not authenticate OpenTofu workspace or state identity and does not prevent same-context replay or rollback. The principal residual risks remain the trusted-host assumption, bearer-token scope, operator-controlled context configuration, legacy migration provenance, and deployment-level backend controls. The project remains experimental and requires independent security review before any production-readiness claim.

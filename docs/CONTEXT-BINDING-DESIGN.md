@@ -1,6 +1,6 @@
 # Context Binding Design (P2)
 
-Status: implementation design for the experimental OpenTofu External Key Provider.
+Status: implemented in the provider and exercised by unit tests plus the real NEXUS-Q CI E2E suite. This document records the design and its limitations; it is not a claim of authenticated workspace or state identity.
 Target NEXUS-Q API: v4.1.2 (source commit `8735e5537bc687ee906ed68bdf119fc8956d9439`).
 
 ## 1. Problem
