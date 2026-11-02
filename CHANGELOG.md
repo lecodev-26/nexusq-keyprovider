@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a project roadmap that records P3 as partially validated and real AWS S3 checks as pending, and starts the P4 quality/distribution phase.
+- Add a reproducible AWS S3 validation runbook; it is explicitly marked as prepared but not executed.
+- Clarify in the README that S3Mock CI coverage does not establish AWS S3, IAM, bucket-policy, versioning, or S3 lockfile compatibility.
 - Bind v2 wrapped-DEK payloads to an operator-configured context ID and reject mismatched contexts before returning keys.
 - Reject legacy v1 metadata by default and provide an explicit, documented v1-to-v2 migration opt-in.
 - Add real NEXUS-Q end-to-end coverage for context mismatch, tampered external context metadata, and legacy migration.

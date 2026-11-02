@@ -32,6 +32,7 @@ This keeps key wrapping separate from the infrastructure tool and avoids embeddi
 - **Implemented:** initial key exchange, prior-key recovery, and key rotation behavior.
 - **Implemented:** v2 wrapped-DEK payloads bound to an operator-configured context ID, with v1 metadata rejected by default and an explicit migration opt-in.
 - **Not implemented:** adapters for Terraform, other IaC tools, cloud KMS services, or a generic provider framework.
+- **Backend validation boundary:** S3-compatible integration is tested against S3Mock in CI; real AWS S3, AWS IAM/bucket policies, versioning, and S3 lockfile contention have not been validated. See the [roadmap](ROADMAP.md) and [AWS S3 validation runbook](docs/AWS-S3-VALIDATION.md).
 - **Not claimed:** production readiness, independent security audit, FIPS validation, or post-quantum certification.
 
 The project is intentionally named for the integration layer it may grow into. OpenTofu is its first adapter; each future integration will need its own protocol implementation and compatibility tests.
@@ -50,7 +51,7 @@ Local end-to-end testing was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
 - CI S3 backend coverage using an isolated Adobe S3Mock instance, including encrypted state and saved-plan handling, plaintext-marker scans, recovery from a clean working directory after an S3Mock restart, and wrapping-key ID rotation.
 
-The S3Mock test exercises the S3 API subset implemented by that local fixture. It is not AWS S3 validation and does not test IAM, bucket policies, versioning, SSE-KMS, replication, or S3 locking.
+The S3Mock test exercises the S3 API subset implemented by that local fixture. It is not AWS S3 validation and does not test IAM, bucket policies, versioning, SSE-KMS, replication, or S3 locking. Real-AWS validation is currently pending because no dedicated AWS test environment is available; the [AWS S3 validation runbook](docs/AWS-S3-VALIDATION.md) documents a reproducible procedure, but that procedure has not been executed.
 
 The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. One CI E2E job runs OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64 with a test-only NEXUS-Q API substitute. A separate Linux AMD64 CI job builds the NEXUS-Q v4.1.2 CLI and server from a pinned source commit, creates an ephemeral vault and wrapping keys, and exercises the real authenticated API with state encryption, saved plans, previous-key recovery, key-ID rotation, server restart recovery, HTTP-backend persistence, audit-chain verification, wrong-context rejection, tampered external-context rejection, and explicit v1 migration. The real-service job uses only generated CI credentials and a temporary vault; it does not depend on repository secrets. Local statement coverage for the provider package is **80.6%** with the current Go test suite.
 
@@ -219,7 +220,7 @@ Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning dep
 
 `integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. `integration/remote-s3.tf` and `integration/s3mock-e2e.sh` exercise the OpenTofu S3 backend against an ephemeral Adobe S3Mock service. `integration/mock-nexusq/` provides a test-only API substitute that wraps test DEKs with AES-256-GCM and a fixed fixture key. These fixtures are intended only for automated development/testing. They do not replace the NEXUS-Q server or validate its implementation, and must not be exposed to a network or used with real infrastructure state or secrets.
 
-The S3Mock test uses generated local credentials and a loopback endpoint. It deliberately does not enable S3 locking. It does not establish compatibility with AWS S3 or other vendors, nor validate production IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, TLS configuration, or lock contention. For production backend controls, see [SECURITY.md](SECURITY.md) and [Threat Model Review Notes](docs/THREAT-MODEL-REVIEW.md).
+The S3Mock test uses generated local credentials and a loopback endpoint. It deliberately does not enable S3 locking. It does not establish compatibility with AWS S3 or other vendors, nor validate production IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, TLS configuration, or lock contention. Real AWS checks are pending; see the [AWS S3 validation runbook](docs/AWS-S3-VALIDATION.md) for the prepared test procedure and [ROADMAP.md](ROADMAP.md) for phase status. For production backend controls, see [SECURITY.md](SECURITY.md) and [Threat Model Review Notes](docs/THREAT-MODEL-REVIEW.md).
 
 Run the automated suite on Linux with Go 1.27+, OpenTofu 1.13.2, Python 3, and `curl`:
 
@@ -265,6 +266,8 @@ Bug reports, protocol feedback, documentation improvements, and focused tests ar
 
 ## Project documentation
 
+- [Project roadmap and validation status](ROADMAP.md)
+- [AWS S3 validation runbook (not yet executed)](docs/AWS-S3-VALIDATION.md)
 - [Design and protocol flow](DESIGN.md)
 - [Security policy](SECURITY.md)
 - [Threat model review notes](docs/THREAT-MODEL-REVIEW.md)
