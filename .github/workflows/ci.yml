@@ -127,10 +127,20 @@ jobs:
           go-version: '1.27.x'
           check-latest: true
           cache: false
-      - uses: opentofu/setup-opentofu@v2.0.2
-        with:
-          tofu_version: ${{ matrix.tofu_version }}
-          tofu_wrapper: false
+      - name: Install OpenTofu from official release assets
+        env:
+          TOFU_VERSION: ${{ matrix.tofu_version }}
+        run: |
+          set -euo pipefail
+          archive="tofu_${TOFU_VERSION}_linux_amd64.zip"
+          base="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive" "$base/$archive"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/SHA256SUMS" "$base/tofu_${TOFU_VERSION}_SHA256SUMS"
+          (cd "$RUNNER_TEMP" && grep -E "^[[:xdigit:]]{64}[[:space:]]+\*?$archive$" SHA256SUMS | sha256sum --check --status)
+          mkdir -p "$RUNNER_TEMP/opentofu"
+          unzip -q "$RUNNER_TEMP/$archive" -d "$RUNNER_TEMP/opentofu"
+          sudo install -m 0755 "$RUNNER_TEMP/opentofu/tofu" /usr/local/bin/tofu
+          tofu version
       - name: Run end-to-end integration suite
         run: bash integration/e2e.sh
 

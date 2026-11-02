@@ -15,7 +15,7 @@ These are exact tested patch versions. They do not imply that every patch in eit
 
 As of 2 November 2026, the CI pins the latest patch releases published for the two currently supported OpenTofu release series: 1.12.11 and 1.13.2. The 1.12 series is scheduled to receive security support until 1 February 2027; the 1.13 series until 1 August 2027. Recheck upstream release and support status before changing these pins.
 
-The CI matrix deliberately keeps the more extensive S3Mock and real-NEXUS-Q service suites on 1.13.2. The 1.12.11 job runs the core provider E2E suite only. Do not describe the S3 backend or real-service suite as tested on 1.12.11.
+The core E2E workflow downloads the exact Linux AMD64 archive directly from the official OpenTofu GitHub release and verifies it against that release's published SHA256SUMS before installation. This avoids relying on the setup action's release index, which had not yet indexed the newly published 1.12.11 release at the time this matrix was added. The CI matrix deliberately keeps the more extensive S3Mock and real-NEXUS-Q service suites on 1.13.2. The 1.12.11 job runs the core provider E2E suite only. Do not describe the S3 backend or real-service suite as tested on 1.12.11.
 
 ## Reproducing the tests
 
