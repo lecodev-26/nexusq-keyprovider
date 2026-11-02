@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +36,8 @@ func TestValidateBaseURL(t *testing.T) {
 		{"userinfo rejected", "https://user:pass@kms.example.test", false},
 		{"query rejected", "https://kms.example.test?token=x", false},
 		{"fragment rejected", "https://kms.example.test#frag", false},
+		{"empty query rejected", "https://kms.example.test?", false},
+		{"empty fragment rejected", "https://kms.example.test#", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -318,4 +322,93 @@ func TestRunRejectsTrailingMetadataBeforeCallingAPI(t *testing.T) {
 	if strings.Contains(output.String(), `"keys"`) {
 		t.Fatalf("provider emitted keys after invalid input: %q", output.String())
 	}
+}
+
+func FuzzReadMetadata(f *testing.F) {
+	for _, seed := range []string{
+		"null",
+		`{"external_data":{}}`,
+		`{"external_data":{"format_version":1,"envelope":"YQ=="}}`,
+		"",
+		"null {}",
+		`{"external_data":null}`,
+		`{"external_data":{"format_version":1e100}}`,
+		"[]",
+	} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		meta, err := readMetadata(strings.NewReader(input))
+		if err != nil {
+			return
+		}
+		encoded, err := json.Marshal(meta)
+		if err != nil {
+			t.Fatalf("marshal accepted metadata: %v", err)
+		}
+		if _, err := readMetadata(bytes.NewReader(encoded)); err != nil {
+			t.Fatalf("accepted metadata did not round-trip: %v", err)
+		}
+	})
+}
+
+func FuzzValidateBaseURL(f *testing.F) {
+	for _, seed := range []string{
+		"https://kms.example.test",
+		"http://127.0.0.1:8443",
+		"http://kms.example.test",
+		"https://kms.example.test?",
+		"https://kms.example.test#",
+		"https://user:pass@kms.example.test",
+		"",
+	} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, raw string) {
+		base, err := validateBaseURL(raw)
+		if err != nil {
+			return
+		}
+		u, parseErr := url.Parse(base)
+		if parseErr != nil {
+			t.Fatalf("accepted URL cannot be parsed: %v", parseErr)
+		}
+		if u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(raw, "#") {
+			t.Fatalf("accepted URL contains forbidden components: %q", raw)
+		}
+		ip := net.ParseIP(u.Hostname())
+		loopbackHTTP := u.Scheme == "http" && (u.Hostname() == "localhost" || (ip != nil && ip.IsLoopback()))
+		if u.Scheme != "https" && !loopbackHTTP {
+			t.Fatalf("accepted URL violates transport policy: %q", raw)
+		}
+	})
+}
+
+func FuzzDecodeAPIResponse(f *testing.F) {
+	for _, seed := range []string{
+		`{"data":"YQ==" }`,
+		`{"data":""}`,
+		`{"data":"%%%"}`,
+		"null",
+		"[]",
+		"not-json",
+		`{"data":"YQ==","extra":true}`,
+	} {
+		f.Add([]byte(seed))
+	}
+
+	f.Fuzz(func(t *testing.T, input []byte) {
+		data, err := decodeAPIResponse(input)
+		if err != nil {
+			return
+		}
+		if data == "" {
+			t.Fatal("accepted empty API data")
+		}
+		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
+			t.Fatalf("accepted invalid Base64: %v", err)
+		}
+	})
 }

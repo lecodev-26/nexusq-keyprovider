@@ -143,7 +143,9 @@ func validateBaseURL(raw string) (string, error) {
 	if err != nil || u.Host == "" {
 		return "", errors.New("invalid NEXUSQ_URL")
 	}
-	if u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	// Reject even empty query/fragment delimiters: concatenating API paths to
+	// such URLs can turn the path into a query or fragment instead of a route.
+	if u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(raw, "#") {
 		return "", errors.New("NEXUSQ_URL must not contain userinfo, query or fragment")
 	}
 	ip := net.ParseIP(u.Hostname())
@@ -180,14 +182,18 @@ func callData(c *http.Client, base, token, path string, payload any) (string, er
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
+	return decodeAPIResponse(data)
+}
+
+func decodeAPIResponse(data []byte) (string, error) {
 	var r APIResponse
-	if err = json.Unmarshal(data, &r); err != nil {
+	if err := json.Unmarshal(data, &r); err != nil {
 		return "", err
 	}
 	if r.Data == "" {
 		return "", errors.New("NEXUS-Q returned empty data")
 	}
-	if _, err = base64.StdEncoding.DecodeString(r.Data); err != nil {
+	if _, err := base64.StdEncoding.DecodeString(r.Data); err != nil {
 		return "", errors.New("NEXUS-Q returned invalid Base64 data")
 	}
 	return r.Data, nil
