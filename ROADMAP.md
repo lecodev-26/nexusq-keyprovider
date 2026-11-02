@@ -72,7 +72,7 @@ Completed preparation:
 
 Still pending:
 
-- Publish the discussion after maintainer approval of the final wording/account and collect actual community feedback.
+- Monitor discussion #4801, respond to technical questions, and incorporate substantive feedback into the implementation or documentation where appropriate.
 - Obtain an independent security reviewer and complete a fixed-commit assessment. The existing threat-model review is internal only.
 - Obtain a separate-operator build reproduction.
 - Execute the AWS S3 runbook only when an authorized disposable AWS environment is available.
