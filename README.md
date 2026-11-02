@@ -46,6 +46,9 @@ A local end-to-end test was run with OpenTofu 1.13.2 on Linux ARM64 and NEXUS-Q 
 - Plaintext scans confirming the tested state and plan files did not contain the test resource name or test value.
 - Four concurrent local plan processes in independent workspace copies.
 - OpenTofu's HTTP backend protocol against a loopback-only development fixture, including recovery from a clean workspace and after restarting the fixture.
+- CI S3 backend coverage using an isolated Adobe S3Mock instance, including encrypted state and saved-plan handling, plaintext-marker scans, recovery from a clean working directory after an S3Mock restart, and wrapping-key ID rotation.
+
+The S3Mock test exercises the S3 API subset implemented by that local fixture. It is not AWS S3 validation and does not test IAM, bucket policies, versioning, SSE-KMS, replication, or S3 locking.
 
 The automated Go suite covers URL policy, authenticated HTTP calls, API response validation and size limits, redirect rejection, protocol output, initial key exchange, and recovery of the previous DEK during rotation. One CI E2E job runs OpenTofu 1.13.2 against the companion on Linux AMD64 and ARM64 with a test-only NEXUS-Q API substitute. A separate Linux AMD64 CI job builds the NEXUS-Q v4.1.2 CLI and server from a pinned source commit, creates an ephemeral vault and wrapping keys, and exercises the real authenticated API with state encryption, saved plans, previous-key recovery, key-ID rotation, server restart recovery, HTTP-backend persistence, and audit-chain verification. The real-service job uses only generated CI credentials and a temporary vault; it does not depend on repository secrets. Local statement coverage for the provider package is **80.6%** with the current Go test suite.
 
@@ -203,9 +206,11 @@ The metadata contains a format version, the NEXUS-Q envelope, and the wrapping-k
 
 Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning deployment.
 
-## Integration fixture
+## Integration fixtures
 
-`integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. `integration/mock-nexusq/` provides a test-only API substitute that wraps test DEKs with AES-256-GCM and a fixed fixture key. Both bind to loopback and are intended only for automated development/testing. They do not replace the NEXUS-Q server or validate its implementation, and must not be exposed to a network or used with real infrastructure state or secrets.
+`integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. `integration/remote-s3.tf` and `integration/s3mock-e2e.sh` exercise the OpenTofu S3 backend against an ephemeral Adobe S3Mock service. `integration/mock-nexusq/` provides a test-only API substitute that wraps test DEKs with AES-256-GCM and a fixed fixture key. These fixtures are intended only for automated development/testing. They do not replace the NEXUS-Q server or validate its implementation, and must not be exposed to a network or used with real infrastructure state or secrets.
+
+The S3Mock test uses generated local credentials and a loopback endpoint. It deliberately does not enable S3 locking. It does not establish compatibility with AWS S3 or other vendors, nor validate production IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, TLS configuration, or lock contention. For production backend controls, see [SECURITY.md](SECURITY.md) and [Threat Model Review Notes](docs/THREAT-MODEL-REVIEW.md).
 
 Run the automated suite on Linux with Go 1.27+, OpenTofu 1.13.2, Python 3, and `curl`:
 
@@ -214,6 +219,14 @@ bash integration/e2e.sh
 ```
 
 The script builds the provider and mock API locally, creates temporary state/plan/backend files, and removes its temporary files and fixture processes on exit. It uses loopback ports 18443 and 18444; ensure those ports are available.
+
+Run the S3 backend test against S3Mock separately with Docker, Go 1.27+, OpenTofu 1.13.2, and `curl`:
+
+```sh
+bash integration/s3mock-e2e.sh
+```
+
+It pulls the pinned Adobe S3Mock 5.2.3 image, starts a temporary local service with a named volume, configures test-only credentials and a bucket, then removes the container and volume on exit. Ensure Docker is running and loopback port 9090 is available.
 
 `integration/nexusq-real-e2e.sh` runs the same integration boundary against real NEXUS-Q binaries. Build the `nexusq` and `nexusq-server` release binaries from the NEXUS-Q v4.1.2 source first, then run:
 
@@ -232,6 +245,7 @@ GitHub Actions runs:
 - Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
 - OpenTofu 1.13.2 E2E tests on native Linux AMD64 and ARM64 runners, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
+- An OpenTofu 1.13.2 S3-compatible backend E2E job against a pinned Adobe S3Mock test service, including encrypted state/plan storage, plaintext-marker scans, service-restart recovery, and wrapping-key rotation. This fixture does not validate AWS production controls or S3 locking.
 - A real NEXUS-Q E2E job on Linux AMD64. It builds NEXUS-Q v4.1.2 from a pinned commit, provisions a temporary vault and wrapping keys, and tests authenticated API operations, encrypted local state/saved plans, key rotation, server restart recovery, HTTP-backend recovery, and audit verification. No long-lived repository secrets are required.
 
 See the [CI workflow](.github/workflows/ci.yml) for the exact matrix and pinned NEXUS-Q source revision. Cross-build success is not the same as runtime testing on every target platform.
@@ -244,6 +258,7 @@ Bug reports, protocol feedback, documentation improvements, and focused tests ar
 
 - [Design and protocol flow](DESIGN.md)
 - [Security policy](SECURITY.md)
+- [Threat model review notes](docs/THREAT-MODEL-REVIEW.md)
 - [Source and dependency provenance](docs/PROVENANCE.md)
 - [Contribution guide](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)

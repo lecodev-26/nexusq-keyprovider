@@ -106,6 +106,26 @@ jobs:
       - name: Run end-to-end integration suite
         run: bash integration/e2e.sh
 
+  s3mock-e2e:
+    name: OpenTofu S3 backend E2E (S3Mock)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false
+      - uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: '1.13.2'
+          tofu_wrapper: false
+      - name: Check S3 backend HCL formatting
+        run: tofu fmt -check integration/remote-s3.tf
+      - name: Run S3-compatible backend integration suite
+        run: bash integration/s3mock-e2e.sh
+
   nexusq-real-e2e:
     name: Real NEXUS-Q E2E (Linux AMD64)
     runs-on: ubuntu-24.04

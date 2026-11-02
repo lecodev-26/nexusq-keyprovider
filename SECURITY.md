@@ -61,5 +61,7 @@ Do not include real credentials, production keys, state files, or other sensitiv
 - A compromised NEXUS-Q server, wrapping key, token issuer, host trust store, or DNS/network control plane is outside this provider's protection boundary.
 - The provider does not independently bind an envelope to a workspace, state lineage, or deployment identity. Access control and operational separation must be enforced by the NEXUS-Q deployment and the surrounding infrastructure.
 - Availability attacks, rate limiting, backup strategy, disaster recovery, and production remote-backend behavior require deployment-level controls and separate validation.
+- For S3-compatible storage, OpenTofu's enforced state/plan encryption protects the payload, not backend credentials, object names, access patterns, or access logs. Use TLS for remote endpoints and configure least-privilege storage access, versioning, recovery, audit logging, and server-side encryption independently.
+- The S3Mock integration fixture does not validate AWS IAM, bucket policies, versioning, Object Lock, SSE-KMS, replication, lifecycle rules, or S3 lock contention. See [Threat Model Review Notes](docs/THREAT-MODEL-REVIEW.md) for the internal review findings and validation boundaries.
 
 This threat model documents the current prototype's boundaries; it is not a security audit, penetration test, or certification.
