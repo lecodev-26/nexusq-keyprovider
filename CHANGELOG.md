@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a pinned Go 1.27.2 cross-platform release-build script with repeated-build comparison, SHA-256 checksums, build metadata, and CI verification.
+- Document the current OpenTofu 1.13.2 compatibility baseline and release provenance limitations; no signed releases or independent reproducibility claims are made.
 - Add a project roadmap that records P3 as partially validated and real AWS S3 checks as pending, and starts the P4 quality/distribution phase.
 - Add a reproducible AWS S3 validation runbook; it is explicitly marked as prepared but not executed.
 - Clarify in the README that S3Mock CI coverage does not establish AWS S3, IAM, bucket-policy, versioning, or S3 lockfile compatibility.

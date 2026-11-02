@@ -35,15 +35,22 @@ The reproducible validation procedure is documented in [AWS S3 validation runboo
 
 ## P4 — Quality, compatibility, and distribution
 
-**Status: next phase; work in progress.**
+**Status: in progress; initial release-build controls added.**
 
-Priorities:
+Completed in this increment:
 
-1. Define and test an explicit OpenTofu compatibility matrix, starting with the currently exercised 1.13.2 release and selected earlier/later supported releases.
-2. Make release builds reproducible and record toolchain, source revision, target platform, and build commands.
-3. Publish checksums and verifiable provenance for release artifacts; do not imply provenance merely from a successful cross-build.
+- Added a pinned Go 1.27.2 release-build script for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
+- The script requires a clean checkout, builds each target twice, compares outputs byte-for-byte, and generates SHA-256 checksums and build metadata.
+- Added a CI job that runs the same build procedure and verifies the checksums.
+- Documented the procedure and its limitations in [Release build and verification](docs/RELEASE-BUILDS.md).
+
+Still pending:
+
+1. Expand the OpenTofu compatibility matrix beyond the currently exercised 1.13.2 baseline after selecting supported versions.
+2. Obtain independent reproducible-build verification from a separate clean environment/operator.
+3. Add signed checksums/attestations and an SBOM before publishing release artifacts.
 4. Document installation, configuration, upgrade, rollback, and troubleshooting for each supported platform.
-5. Keep platform claims precise: cross-compilation is not runtime testing on that platform.
+5. Add runtime testing on macOS/Windows before claiming those platforms as runtime-validated.
 
 ## P5 — External review
 

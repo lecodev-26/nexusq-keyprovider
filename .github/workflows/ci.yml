@@ -84,6 +84,25 @@ jobs:
           CGO_ENABLED: '0'
         run: go build -trimpath -o /tmp/nexusq-keyprovider .
 
+  release-build-repro:
+    name: Reproducible release build (Go 1.27.2)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.2'
+          check-latest: false
+          cache: false
+      - name: Verify release build toolchain
+        run: test "$(go version | awk '{print $3}')" = 'go1.27.2'
+      - name: Build all release targets twice and compare
+        run: bash scripts/release-build.sh
+      - name: Verify generated SHA-256 checksums
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+
   e2e:
     name: OpenTofu E2E (Linux ${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}

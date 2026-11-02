@@ -104,20 +104,19 @@ Build on the host that will run OpenTofu:
 git clone https://github.com/lecodev-26/nexusq-keyprovider.git
 cd nexusq-keyprovider
 
-go test ./...
+go test -count=1 ./...
 go vet ./...
-go build -trimpath -o nexusq-keyprovider .
+go build -trimpath -buildvcs=false -o nexusq-keyprovider .
 ```
 
-Cross-compile a Linux ARM64 executable:
+For a pinned cross-platform release-candidate build, use Go 1.27.2 and the checked-in script:
 
 ```sh
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
-  go build -trimpath -ldflags="-s -w" \
-  -o nexusq-keyprovider-linux-arm64 .
+bash scripts/release-build.sh
+(cd dist && sha256sum --check SHA256SUMS)
 ```
 
-Prebuilt release artifacts are not currently published. Build from source and review the code before use.
+The script builds Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 twice, compares each pair byte-for-byte, and writes SHA-256 checksums plus build metadata. See [Release build and verification](docs/RELEASE-BUILDS.md) for independent verification and limitations. Prebuilt release artifacts are not currently published; these are local/CI build candidates, not signed releases.
 
 ## Configure NEXUS-Q
 
@@ -253,12 +252,12 @@ GitHub Actions runs:
 - Formatting checks, unit tests, and `go vet` on Go 1.26 and Go 1.27.
 - Dedicated Go 1.27 fuzzing for metadata parsing, NEXUS-Q URL validation, and API response parsing.
 - Go race detection on Go 1.27.
-- Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
+- Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64. A separate pinned Go 1.27.2 job builds each release target twice, checks byte-for-byte determinism within the runner, and verifies generated SHA-256 checksums; this is not an independent attestation.
 - OpenTofu 1.13.2 E2E tests on native Linux AMD64 and ARM64 runners, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
 - An OpenTofu 1.13.2 S3-compatible backend E2E job against a pinned Adobe S3Mock test service, including encrypted state/plan storage, plaintext-marker scans, service-restart recovery, and wrapping-key rotation. This fixture does not validate AWS production controls or S3 locking.
 - A real NEXUS-Q E2E job on Linux AMD64. It builds NEXUS-Q v4.1.2 from a pinned commit, provisions a temporary vault and wrapping keys, and tests authenticated API operations, encrypted local state/saved plans, key rotation, server restart recovery, HTTP-backend recovery, and audit verification. No long-lived repository secrets are required.
 
-See the [CI workflow](.github/workflows/ci.yml) for the exact matrix and pinned NEXUS-Q source revision. Cross-build success is not the same as runtime testing on every target platform.
+See the [CI workflow](.github/workflows/ci.yml) for the exact matrix and pinned NEXUS-Q source revision. OpenTofu E2E currently exercises version 1.13.2 only. Cross-build success is not the same as runtime testing on every target platform. See [Release build and verification](docs/RELEASE-BUILDS.md) for the artifact verification boundary.
 
 ## Contributing
 

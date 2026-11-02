@@ -19,6 +19,12 @@ The real-service CI integration job checks out the public NEXUS-Q repository at 
 - Python standard library: distributed under the applicable Python Software Foundation license terms; it is not copied into this repository.
 - GitHub Actions workflow: references external actions by release tags (`actions/checkout`, `actions/setup-go`, and `opentofu/setup-opentofu`). These are CI-time dependencies, not runtime dependencies. The NEXUS-Q source checkout and the Rust toolchain setup action are pinned to full commit SHAs. For a hardened release pipeline, pin each action to a reviewed full commit SHA and periodically review updates.
 
+## Release build evidence and limitations
+
+The repository includes `scripts/release-build.sh`, which requires Go 1.27.2, a clean Git worktree, disables CGO, uses `-trimpath` and `-buildvcs=false`, and builds Linux AMD64/ARM64, macOS ARM64, and Windows AMD64 outputs twice. It compares each pair byte-for-byte and emits SHA-256 checksums plus a build-info file. CI runs the same procedure on Ubuntu 24.04.
+
+This establishes repeated-build determinism within that CI runner, not independent reproducibility across machines. Checksums are not signatures; they do not authenticate the publisher. There are no published release binaries, signed attestations, signed executables, or release SBOM yet. See [Release build and verification](RELEASE-BUILDS.md).
+
 ## Maintainer checks before a release
 
 1. Re-run `go list -m -json all` and review any newly introduced module.
