@@ -43,13 +43,14 @@ Completed in this increment:
 - The script requires a clean checkout, builds each target twice, compares outputs byte-for-byte, and generates SHA-256 checksums and build metadata.
 - Added a CI job that runs the same build procedure and verifies the checksums.
 - Documented the procedure and its limitations in [Release build and verification](docs/RELEASE-BUILDS.md).
+- Added Linux/macOS/Windows build and install guidance, environment setup, upgrade/rollback precautions, and troubleshooting in [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md).
 
 Still pending:
 
 1. Keep the OpenTofu compatibility matrix current as supported patch releases change; the core E2E suite now covers 1.12.11 (Linux AMD64) and 1.13.2 (Linux AMD64/ARM64). The S3Mock and real-service suites remain on 1.13.2.
 2. Obtain independent reproducible-build verification from a separate clean environment/operator.
 3. Add signed checksums/attestations and an SBOM before publishing release artifacts.
-4. Document installation, configuration, upgrade, rollback, and troubleshooting for each supported platform.
+4. Validate the installation instructions on clean Linux, macOS, and Windows hosts; documentation exists, but macOS/Windows runtime behavior is not yet tested.
 5. Add runtime testing on macOS/Windows before claiming those platforms as runtime-validated.
 
 ## P5 — External review

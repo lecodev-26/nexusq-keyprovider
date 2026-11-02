@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add platform-specific build/install guidance, upgrade and rollback cautions, and a troubleshooting reference.
 - Expand core OpenTofu E2E coverage to 1.12.11 on Linux AMD64 while retaining 1.13.2 coverage on AMD64/ARM64; document exact compatibility boundaries.
 - Add a pinned Go 1.27.2 cross-platform release-build script with repeated-build comparison, SHA-256 checksums, build metadata, and CI verification.
 - Document the current OpenTofu 1.13.2 compatibility baseline and release provenance limitations; no signed releases or independent reproducibility claims are made.

@@ -267,6 +267,7 @@ Bug reports, protocol feedback, documentation improvements, and focused tests ar
 
 - [Project roadmap and validation status](ROADMAP.md)
 - [OpenTofu compatibility matrix](docs/OPENTOFU-COMPATIBILITY.md)
+- [Installation, upgrades, and troubleshooting](docs/INSTALLATION-TROUBLESHOOTING.md)
 - [AWS S3 validation runbook (not yet executed)](docs/AWS-S3-VALIDATION.md)
 - [Design and protocol flow](DESIGN.md)
 - [Security policy](SECURITY.md)
