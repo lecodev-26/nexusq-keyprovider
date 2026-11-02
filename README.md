@@ -253,7 +253,7 @@ GitHub Actions runs:
 - Dedicated Go 1.27 fuzzing for metadata parsing, NEXUS-Q URL validation, and API response parsing.
 - Go race detection on Go 1.27.
 - Cross-builds for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64. Pinned Go 1.27.2 release builds use separate empty Go caches for repeated builds; a second GitHub-hosted runner rebuilds and compares all four outputs byte-for-byte. This is cross-runner CI evidence, not independent third-party verification.
-- Three SPDX 2.3 SBOMs cover the source workspace, release binaries, and direct release-build CI actions/tools. The CI tool inventory is scoped and does not enumerate every preinstalled runner package or transitive action dependency.
+- Three SPDX 2.3 SBOMs cover the source workspace, release binaries, and direct CI workflow actions, declared integration inputs, and release-build tools. The CI tool inventory is scoped and does not enumerate every preinstalled runner package or transitive action dependency.
 - Native OpenTofu 1.13.2 runtime E2E on macOS 15 ARM64 and Windows Server 2025 AMD64, in addition to the Linux compatibility matrix.
 - OpenTofu core E2E tests on Linux AMD64 with 1.12.11 and on Linux AMD64/ARM64 with 1.13.2, using an isolated test-only NEXUS-Q API fixture and the local HTTP backend fixture.
 - An OpenTofu 1.13.2 S3-compatible backend E2E job against a pinned Adobe S3Mock test service, including encrypted state/plan storage, plaintext-marker scans, service-restart recovery, and wrapping-key rotation. This fixture does not validate AWS production controls or S3 locking.

@@ -34,9 +34,9 @@ The release-build CI job produces three distinct SPDX 2.3 JSON documents:
 
 1. `sbom-source.spdx.json` — the checked-out source workspace and detected project dependencies.
 2. `sbom-release-artifacts.spdx.json` — the four compiled release binaries, scanned separately by Syft.
-3. `sbom-ci-environment.spdx.json` — direct actions used by the release-build job and directly invoked build tools, with versions/resolved references.
+3. `sbom-ci-environment.spdx.json` — direct actions declared across the CI workflow, integration input versions, and directly invoked release-build tools, with versions/resolved references.
 
-Syft is pinned to `v1.55.0`. `BUILD-ENVIRONMENT.txt` records the runner image metadata, OS, Go environment/module graph, and direct action/tool versions. The CI environment SPDX inventory deliberately does **not** claim to enumerate every preinstalled package in the GitHub runner image, transitive dependencies bundled inside each action, GitHub service internals, or the external NEXUS-Q deployment. Those remain outside its scope.
+Syft is pinned to `v1.55.0`. `BUILD-ENVIRONMENT.txt` records the runner image metadata, OS, Go environment/module graph, and direct action/tool versions. The CI environment SPDX inventory records runner labels across the workflow and the actual image/tool versions of the release-build runner. It deliberately does **not** enumerate every preinstalled package on every runner, transitive dependencies bundled inside each action, the exact Rust stable patch selected at runtime, GitHub service internals, or the external NEXUS-Q deployment. Those remain outside its scope.
 
 The release candidate tarball includes all three SBOMs, the environment manifest, checksums, build metadata, and four binaries. The workflow separately attests the source, release-binary, and CI-environment SBOMs and the tarball's SLSA build provenance. The tarball and Sigstore bundles are retained as workflow artifacts for 30 days; no GitHub Release is published automatically.
 
@@ -76,6 +76,6 @@ The core Linux E2E matrix tests **1.12.11 on Linux AMD64** and **1.13.2 on Linux
 - A separate operator must reproduce the build outside this repository's GitHub Actions workflow and record the result.
 - An independent security auditor must review the design, implementation, CI and operational controls before any production-readiness claim.
 - Real AWS S3, IAM, versioning, locking, Object Lock, SSE-KMS, and recovery behavior require an authorized AWS test account; S3Mock is not equivalent.
-- A full inventory of every preinstalled runner package and every transitive dependency inside GitHub Actions is not currently produced. The current CI SBOM covers direct release-build actions and directly invoked build tools only.
+- A full inventory of every preinstalled runner package and every transitive dependency inside GitHub Actions is not currently produced. The current CI SBOM covers direct workflow actions, declared integration inputs, and directly invoked release-build tools only.
 
 SHA-256 checksums detect artifact changes only when the checksum file is obtained through a trusted channel; they do not authenticate the publisher by themselves. Attestations authenticate workflow provenance and SBOM associations, not the correctness or security of the implementation. Keep release publication and any production-readiness claim subject to independent review.

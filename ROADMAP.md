@@ -42,7 +42,7 @@ Completed and automated:
 - Added a pinned Go 1.27.2 release-build script for Linux AMD64/ARM64, macOS ARM64, and Windows AMD64.
 - Each target is built twice using separate, initially empty Go build-cache directories; checksums and build metadata are generated.
 - A second GitHub-hosted runner rebuilds the same commit with fresh caches, verifies the release bundle and all attestations, compares all four binaries byte-for-byte, and uploads a comparison report.
-- Added three separate SPDX 2.3 inventories: source workspace, compiled release binaries, and direct release-build CI actions/tools. Syft is pinned to v1.55.0.
+- Added three separate SPDX 2.3 inventories: source workspace, compiled release binaries, and direct CI workflow actions and declared integration inputs, plus release-build tools. Syft is pinned to v1.55.0.
 - Added a build-environment manifest with runner image metadata, OS, Go environment/module graph, and direct action/tool references.
 - Added signed attestations for SLSA build provenance and each of the three SBOMs; the second runner verifies each Sigstore bundle.
 - Added native OpenTofu 1.13.2 runtime E2E jobs on macOS 15 ARM64 and Windows Server 2025 AMD64, including provider protocol, local state/saved plans, DEK recovery/rotation, and HTTP remote-state recovery using test fixtures.
@@ -50,7 +50,7 @@ Completed and automated:
 
 Scope and remaining limitations:
 
-1. The CI environment SBOM inventories direct actions in the release-build job and directly invoked build tools. It does not enumerate every preinstalled GitHub runner package, action-internal transitive dependency, GitHub service component, or NEXUS-Q deployment dependency.
+1. The CI environment SBOM inventories direct actions across the CI workflow, declared integration inputs, and directly invoked release-build tools. It does not enumerate every preinstalled GitHub runner package, action-internal transitive dependency, GitHub service component, or NEXUS-Q deployment dependency.
 2. Cross-runner reproducibility remains inside GitHub Actions. A separate operator must reproduce the build outside this workflow and record the result.
 3. macOS/Windows runtime coverage is limited to the exact tested runner labels and OpenTofu 1.13.2; it does not imply compatibility with all OS releases, architectures, or OpenTofu patches.
 4. Arrange an independent security review before making any production-readiness claim.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an SPDX 2.3 inventory of direct release-build CI inputs."""
+"""Generate an SPDX 2.3 inventory of direct CI actions and declared tool inputs."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +18,7 @@ def command_output(*args: str) -> str:
         result = subprocess.run(args, check=True, text=True, capture_output=True)
         return (result.stdout or result.stderr).strip()
     except (OSError, subprocess.CalledProcessError):
-        return "unavailable"
+        return 'unavailable'
 
 
 def command(*args: str) -> str:
@@ -37,14 +37,9 @@ def os_release() -> str:
     return platform.platform()
 
 
-def release_build_actions(workflow: Path) -> list[tuple[str, str, str]]:
-    text = workflow.read_text(encoding='utf-8')
-    marker = '  release-build-repro:\n'
-    if marker not in text:
-        raise ValueError('release-build-repro job not found in workflow')
-    section = text.split(marker, 1)[1].split('\n  independent-rebuild-check:', 1)[0]
+def workflow_actions(workflow_text: str) -> list[tuple[str, str, str]]:
     actions: list[tuple[str, str, str]] = []
-    for line in section.splitlines():
+    for line in workflow_text.splitlines():
         use = re.search(r'\buses:\s*([^\s#]+)', line)
         if not use:
             continue
@@ -81,11 +76,31 @@ def main() -> None:
     parser.add_argument('--syft-version', default='')
     args = parser.parse_args()
 
-    workflow = Path(args.workflow)
-    actions = release_build_actions(workflow)
-    packages = []
-    for name, version, url in actions:
-        packages.append(package(name, version, url))
+    workflow_text = Path(args.workflow).read_text(encoding='utf-8')
+    actions = workflow_actions(workflow_text)
+    packages = [package(name, version, url) for name, version, url in actions]
+
+    runner_labels = sorted(set(re.findall(r'^\s*(?:runs-on:|runner:|-\s*runner:)\s*([A-Za-z0-9_.-]+)', workflow_text, re.MULTILINE)))
+    packages.append(package('GitHub Actions runner labels', ', '.join(runner_labels), 'https://github.com/actions/runner-images'))
+
+    tofu_versions = sorted(set(re.findall(r"tofu_version:\s*['\"]?([^'\"#\s]+)", workflow_text)))
+    for version in tofu_versions:
+        packages.append(package('OpenTofu CLI', version, 'https://github.com/opentofu/opentofu'))
+
+    go_matrix = re.search(r"go:\s*\['([^']+)',\s*'([^']+)'\]", workflow_text)
+    if go_matrix:
+        packages.append(package('Go test matrix', f'{go_matrix.group(1)}; {go_matrix.group(2)} (latest patch resolved at runtime)', 'https://go.dev/dl/'))
+
+    nexusq_ref = re.search(r'repository:\s*lecodev-26/nexus-q\s*\n\s*ref:\s*([0-9a-f]{40})', workflow_text)
+    if nexusq_ref:
+        packages.append(package('NEXUS-Q source', nexusq_ref.group(1), 'https://github.com/lecodev-26/nexus-q'))
+
+    if any(name == 'dtolnay/rust-toolchain' for name, _, _ in actions):
+        packages.append(package('Rust toolchain selector', 'stable (resolved at CI runtime; action ref is pinned)', 'https://www.rust-lang.org/tools/install'))
+
+    s3mock_match = re.search(r'S3MOCK_IMAGE="([^"]+)"', Path('integration/s3mock-e2e.sh').read_text(encoding='utf-8'))
+    if s3mock_match:
+        packages.append(package('S3Mock container image', s3mock_match.group(1), 'https://hub.docker.com/r/adobe/s3mock'))
 
     go_version = command('go', 'version')
     git_version = command('git', '--version')
@@ -98,64 +113,75 @@ def main() -> None:
     runner_image = f"{os.environ.get('ImageOS', 'unknown')} {os.environ.get('ImageVersion', 'unknown')}"
 
     tools = [
-        ('Go toolchain', go_version, 'https://go.dev/dl/'),
-        ('Git', git_version, 'https://git-scm.com/'),
-        ('Bash', bash_version, 'https://www.gnu.org/software/bash/'),
-        ('Python', python_version, 'https://www.python.org/'),
-        ('tar', tar_version, 'https://www.gnu.org/software/tar/'),
-        ('sha256sum (coreutils)', checksum_version, 'https://www.gnu.org/software/coreutils/'),
+        ('Go toolchain (release build)', go_version, 'https://go.dev/dl/'),
+        ('Git (release build runner)', git_version, 'https://git-scm.com/'),
+        ('Bash (release build runner)', bash_version, 'https://www.gnu.org/software/bash/'),
+        ('Python (release build runner)', python_version, 'https://www.python.org/'),
+        ('tar (release build runner)', tar_version, 'https://www.gnu.org/software/tar/'),
+        ('sha256sum / GNU coreutils (release build runner)', checksum_version, 'https://www.gnu.org/software/coreutils/'),
         ('Syft', syft_version, 'https://github.com/anchore/syft'),
-        ('GitHub-hosted runner image', runner_image, 'https://github.com/actions/runner-images'),
+        ('GitHub-hosted release-build runner image', runner_image, 'https://github.com/actions/runner-images'),
     ]
-    packages.extend(package(name, version, url, 'OPERATING-SYSTEM' if name == 'GitHub-hosted runner image' else 'APPLICATION') for name, version, url in tools)
+    packages.extend(package(name, version, url, 'OPERATING-SYSTEM' if 'runner image' in name else 'APPLICATION') for name, version, url in tools)
 
     created = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
     digest_input = json.dumps(packages, sort_keys=True).encode()
     namespace_id = hashlib.sha256(digest_input + created.encode()).hexdigest()
-    spdx_ids = [item['SPDXID'] for item in packages]
+    package_ids = [item['SPDXID'] for item in packages]
     document = {
         'spdxVersion': 'SPDX-2.3',
         'dataLicense': 'CC0-1.0',
         'SPDXID': 'SPDXRef-DOCUMENT',
-        'name': 'NEXUS-Q key provider release-build CI environment',
+        'name': 'NEXUS-Q key provider CI environment',
         'documentNamespace': f'https://spdx.org/spdxdocs/nexusq-ci-environment-{namespace_id}',
         'creationInfo': {
             'creators': ['Tool: nexusq-keyprovider-ci-sbom-generator'],
             'created': created,
-            'comment': 'Direct release-build workflow actions and directly invoked build tools; not a full inventory of preinstalled runner packages or transitive action dependencies.',
+            'comment': 'Direct actions declared across the workflow; declared CI integration inputs; and directly invoked tools plus actual runner image for the release-build job.',
         },
         'packages': packages,
-        'documentDescribes': spdx_ids,
+        'documentDescribes': package_ids,
         'relationships': [
-            {'spdxElementId': 'SPDXRef-DOCUMENT', 'relationshipType': 'DESCRIBES', 'relatedSpdxElement': item_id}
-            for item_id in spdx_ids
+            {'spdxElementId': 'SPDXRef-DOCUMENT', 'relationshipType': 'DESCRIBES', 'relatedSpdxElement': package_id}
+            for package_id in package_ids
         ],
     }
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
 
     manifest = [
-        'NEXUS-Q key provider release-build environment',
-        f'Runner label: {runner_label}',
-        f'Runner image: {runner_image}',
-        f'OS: {os_release()}',
-        f'Kernel/architecture: {platform.platform()} / {platform.machine()}',
-        f'Go: {go_version}',
-        f'Go environment: {command_output("go", "env", "GOOS", "GOARCH", "CGO_ENABLED", "GOTOOLCHAIN", "GOWORK", "GOFLAGS").replace(chr(10), ", ")}',
-        f'Go module graph: {command_output("go", "list", "-m", "all").replace(chr(10), ", ")}',
-        f'Git: {git_version}',
-        f'Bash: {bash_version}',
-        f'Python: {python_version}',
-        f'tar: {tar_version}',
-        f'sha256sum: {checksum_version}',
+        'NEXUS-Q key provider CI environment inventory',
+        f'Release-build runner label: {runner_label}',
+        f'Release-build runner image: {runner_image}',
+        f'Release-build OS: {os_release()}',
+        f'Release-build kernel/architecture: {platform.platform()} / {platform.machine()}',
+        f'Release-build Go: {go_version}',
+        f'Release-build Go environment: {command_output("go", "env", "GOOS", "GOARCH", "CGO_ENABLED", "GOTOOLCHAIN", "GOWORK", "GOFLAGS").replace(chr(10), ", ")}',
+        f'Release-build Go module graph: {command_output("go", "list", "-m", "all").replace(chr(10), ", ")}',
+        f'Release-build Git: {git_version}',
+        f'Release-build Bash: {bash_version}',
+        f'Release-build Python: {python_version}',
+        f'Release-build tar: {tar_version}',
+        f'Release-build sha256sum: {checksum_version}',
         f'Syft: {syft_version}',
-        'Direct actions used by release-build-repro:',
+        'Direct actions declared across CI workflow:',
     ]
     manifest.extend(f'  - {name}@{version}' for name, version, _ in actions)
     manifest.extend([
+        f'Runner labels declared in workflow: {", ".join(runner_labels)}',
+        f'OpenTofu versions declared in workflow: {", ".join(tofu_versions)}',
+    ])
+    if go_matrix:
+        manifest.append(f'Go test matrix: {go_matrix.group(1)}, {go_matrix.group(2)} (latest patch resolved at runtime)')
+    if nexusq_ref:
+        manifest.append(f'NEXUS-Q source commit: {nexusq_ref.group(1)}')
+    if s3mock_match:
+        manifest.append(f'S3Mock image: {s3mock_match.group(1)}')
+    manifest.extend([
+        'Rust toolchain: stable selected by the pinned dtolnay/rust-toolchain action; exact patch resolved at runtime.',
         '',
-        'Scope: directly declared release-build actions and tools invoked by the release build.',
-        'Excludes: all preinstalled runner packages, transitive dependencies inside actions, GitHub service internals, and external NEXUS-Q deployment software.',
+        'Scope: direct workflow actions, declared integration tool/source versions, and directly invoked release-build tools plus the actual release-build runner image.',
+        'Excludes: all preinstalled packages on every runner, action-internal transitive dependencies, exact Rust stable resolution, GitHub service internals, and external NEXUS-Q deployment software.',
     ])
     Path(args.manifest).parent.mkdir(parents=True, exist_ok=True)
     Path(args.manifest).write_text('\n'.join(manifest) + '\n', encoding='utf-8')
