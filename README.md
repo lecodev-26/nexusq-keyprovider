@@ -215,6 +215,8 @@ The v2 metadata contains a format version, the configured context ID, the NEXUS-
 
 Read [SECURITY.md](SECURITY.md) before reporting a vulnerability or planning deployment.
 
+For upstream interoperability feedback and the independent-review scope, see [External review and community feedback](docs/EXTERNAL-REVIEW.md). The community post is prepared but not yet published; no independent audit is claimed.
+
 ## Integration fixtures
 
 `integration/remote-http.tf` and `integration/fixtures/http-backend.py` provide a local OpenTofu HTTP-backend test fixture. `integration/remote-s3.tf` and `integration/s3mock-e2e.sh` exercise the OpenTofu S3 backend against an ephemeral Adobe S3Mock service. `integration/mock-nexusq/` provides a test-only API substitute that wraps test DEKs with AES-256-GCM and a fixed fixture key. These fixtures are intended only for automated development/testing. They do not replace the NEXUS-Q server or validate its implementation, and must not be exposed to a network or used with real infrastructure state or secrets.
