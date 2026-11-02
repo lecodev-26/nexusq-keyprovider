@@ -48,6 +48,10 @@ jobs:
         run: go test -run='^$' -fuzz=FuzzReadMetadata -fuzztime=20s
       - name: Fuzz NEXUS-Q URL validation
         run: go test -run='^$' -fuzz=FuzzValidateBaseURL -fuzztime=20s
+      - name: Fuzz provider metadata validation
+        run: go test -run='^$' -fuzz=FuzzParseProviderMetadata -fuzztime=20s
+      - name: Fuzz wrapped DEK payload decoder
+        run: go test -run='^$' -fuzz=FuzzDecodeWrappedDEK -fuzztime=20s
       - name: Fuzz API response parser
         run: go test -run='^$' -fuzz=FuzzDecodeAPIResponse -fuzztime=20s
 

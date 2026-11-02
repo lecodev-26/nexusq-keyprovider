@@ -123,6 +123,80 @@ export NEXUSQ_CONTEXT_ID="ci-real-nexusq-state"
 export NEXUSQ_HTTP_BACKEND_STATE="$TMP/remote.tfstate"
 export NEXUSQ_HTTP_BACKEND_LOCK="$TMP/remote.lock"
 
+
+echo "== Real NEXUS-Q: explicit legacy v1 migration to context-bound v2 =="
+python3 - "$KEY1" "$TMP/legacy-dek" "$TMP/legacy-encrypt.json" <<'PYLEGACY'
+import base64, json, secrets, sys
+dek = secrets.token_bytes(32)
+with open(sys.argv[2], "wb") as handle:
+    handle.write(dek)
+request = {
+    "key_id": sys.argv[1],
+    "plaintext": base64.b64encode(dek).decode("ascii"),
+    "metadata": "opentofu-external-key-provider-v1",
+}
+with open(sys.argv[3], "w", encoding="utf-8") as handle:
+    json.dump(request, handle)
+PYLEGACY
+LEGACY_ENVELOPE="$(curl --config "$TMP/curl-auth.conf" --fail --silent --show-error \
+  -H "Content-Type: application/json" --data-binary "@$TMP/legacy-encrypt.json" \
+  "$SERVER_URL/v1/encrypt" | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"])')"
+python3 - "$LEGACY_ENVELOPE" "$KEY1" "$TMP/legacy-input.json" <<'PYLEGACY'
+import json, sys
+metadata = {
+    "format_version": 1,
+    "envelope": sys.argv[1],
+    "wrapping_key_id": sys.argv[2],
+}
+with open(sys.argv[3], "w", encoding="utf-8") as handle:
+    json.dump({"external_data": metadata}, handle)
+PYLEGACY
+if env -u NEXUSQ_ALLOW_LEGACY_V1 "$PROVIDER_BIN" \
+  <"$TMP/legacy-input.json" >"$TMP/legacy-disabled.out" 2>"$TMP/legacy-disabled.err"; then
+  echo "FAIL: legacy v1 metadata was accepted without the migration opt-in" >&2
+  exit 1
+fi
+grep -q "legacy metadata v1 is disabled" "$TMP/legacy-disabled.err"
+NEXUSQ_ALLOW_LEGACY_V1=true "$PROVIDER_BIN" \
+  <"$TMP/legacy-input.json" >"$TMP/legacy-migrated.jsonl"
+python3 - "$TMP/legacy-dek" "$TMP/legacy-migrated.jsonl" "$TMP/legacy-v2-input.json" <<'PYLEGACY'
+import base64, json, sys
+expected = open(sys.argv[1], "rb").read()
+lines = open(sys.argv[2], encoding="utf-8").read().splitlines()
+assert len(lines) == 2
+result = json.loads(lines[1])
+assert base64.b64decode(result["keys"]["decryption_key"]) == expected
+external = result["meta"]["external_data"]
+assert external["format_version"] == 2
+assert external["context_id"] == "ci-real-nexusq-state"
+with open(sys.argv[3], "w", encoding="utf-8") as handle:
+    json.dump({"external_data": external}, handle)
+PYLEGACY
+
+echo "== Real NEXUS-Q: reject a v2 envelope used with another configured context =="
+if NEXUSQ_CONTEXT_ID="ci-other-context" "$PROVIDER_BIN" \
+  <"$TMP/legacy-v2-input.json" >"$TMP/wrong-context.out" 2>"$TMP/wrong-context.err"; then
+  echo "FAIL: v2 metadata was accepted with a different configured context" >&2
+  exit 1
+fi
+grep -q "metadata context_id does not match" "$TMP/wrong-context.err"
+
+echo "== Real NEXUS-Q: reject tampered external context using encrypted payload binding =="
+python3 - "$TMP/legacy-migrated.jsonl" "$TMP/tampered-context-input.json" <<'PYLEGACY'
+import json, sys
+lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
+external = json.loads(lines[1])["meta"]["external_data"]
+external["context_id"] = "ci-tampered-context"
+with open(sys.argv[2], "w", encoding="utf-8") as handle:
+    json.dump({"external_data": external}, handle)
+PYLEGACY
+if NEXUSQ_CONTEXT_ID="ci-tampered-context" "$PROVIDER_BIN" \
+  <"$TMP/tampered-context-input.json" >"$TMP/tampered-context.out" 2>"$TMP/tampered-context.err"; then
+  echo "FAIL: tampered external context bypassed encrypted payload binding" >&2
+  exit 1
+fi
+grep -q "decrypted payload context_id does not match" "$TMP/tampered-context.err"
+
 echo "== Real NEXUS-Q: local state and saved-plan encryption =="
 mkdir "$TMP/local"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_BIN|g" \
