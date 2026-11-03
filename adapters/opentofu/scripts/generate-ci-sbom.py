@@ -70,12 +70,13 @@ def package(name: str, version: str, download: str, purpose: str = 'APPLICATION'
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--workflow', default='.github/workflows/ci.yml')
+    parser.add_argument('--workflow', default='.github/workflows/opentofu.yml')
     parser.add_argument('--output', required=True)
     parser.add_argument('--manifest', required=True)
     parser.add_argument('--syft-version', default='')
     args = parser.parse_args()
 
+    adapter_dir = Path(__file__).resolve().parents[1]
     workflow_text = Path(args.workflow).read_text(encoding='utf-8')
     actions = workflow_actions(workflow_text)
     packages = [package(name, version, url) for name, version, url in actions]
@@ -98,7 +99,8 @@ def main() -> None:
     if any(name == 'dtolnay/rust-toolchain' for name, _, _ in actions):
         packages.append(package('Rust toolchain selector', 'stable (resolved at CI runtime; action ref is pinned)', 'https://www.rust-lang.org/tools/install'))
 
-    s3mock_match = re.search(r'S3MOCK_IMAGE="([^"]+)"', Path('integration/s3mock-e2e.sh').read_text(encoding='utf-8'))
+    s3mock_path = adapter_dir / 'tests/integration/s3mock-e2e.sh'
+    s3mock_match = re.search(r'S3MOCK_IMAGE="([^"]+)"', s3mock_path.read_text(encoding='utf-8'))
     if s3mock_match:
         packages.append(package('S3Mock container image', s3mock_match.group(1), 'https://hub.docker.com/r/adobe/s3mock'))
 
@@ -132,12 +134,12 @@ def main() -> None:
         'spdxVersion': 'SPDX-2.3',
         'dataLicense': 'CC0-1.0',
         'SPDXID': 'SPDXRef-DOCUMENT',
-        'name': 'NEXUS-Q key provider CI environment',
-        'documentNamespace': f'https://spdx.org/spdxdocs/nexusq-ci-environment-{namespace_id}',
+        'name': 'NEXUS-Q OpenTofu adapter CI environment',
+        'documentNamespace': f'https://spdx.org/spdxdocs/nexusq-opentofu-ci-environment-{namespace_id}',
         'creationInfo': {
-            'creators': ['Tool: nexusq-keyprovider-ci-sbom-generator'],
+            'creators': ['Tool: nexusq-keyprovider-opentofu-ci-sbom-generator'],
             'created': created,
-            'comment': 'Direct actions declared across the workflow; declared CI integration inputs; and directly invoked tools plus actual runner image for the release-build job.',
+            'comment': 'Direct actions declared across the workflow; declared OpenTofu integration inputs; and directly invoked tools plus actual runner image for the release-build job.',
         },
         'packages': packages,
         'documentDescribes': package_ids,
@@ -149,15 +151,18 @@ def main() -> None:
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
 
+    module_graph = subprocess.run(
+        ['go', 'list', '-m', 'all'], cwd=adapter_dir, check=True, text=True, capture_output=True
+    ).stdout.strip().replace('\n', ', ')
     manifest = [
-        'NEXUS-Q key provider CI environment inventory',
+        'NEXUS-Q OpenTofu adapter CI environment inventory',
         f'Release-build runner label: {runner_label}',
         f'Release-build runner image: {runner_image}',
         f'Release-build OS: {os_release()}',
         f'Release-build kernel/architecture: {platform.platform()} / {platform.machine()}',
         f'Release-build Go: {go_version}',
         f'Release-build Go environment: {command_output("go", "env", "GOOS", "GOARCH", "CGO_ENABLED", "GOTOOLCHAIN", "GOWORK", "GOFLAGS").replace(chr(10), ", ")}',
-        f'Release-build Go module graph: {command_output("go", "list", "-m", "all").replace(chr(10), ", ")}',
+        f'Release-build Go module graph: {module_graph}',
         f'Release-build Git: {git_version}',
         f'Release-build Bash: {bash_version}',
         f'Release-build Python: {python_version}',

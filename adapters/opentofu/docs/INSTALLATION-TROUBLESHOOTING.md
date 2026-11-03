@@ -1,6 +1,9 @@
-# Installation, upgrades, and troubleshooting
+# OpenTofu adapter — installation, upgrades, and troubleshooting
 
 ## Scope
+
+This guide applies only to the OpenTofu adapter in `adapters/opentofu/`. It is not a generic installation guide for every adapter in this repository.
+
 
 This guide installs the companion executable locally. It does not install NEXUS-Q or OpenTofu. Experimental prebuilt NEXUS-Q Key Provider binaries are available from the [GitHub Releases page](https://github.com/lecodev-26/nexusq-keyprovider/releases); verify their checksums and attestations before use. You may also build from a reviewed source commit. Native runtime E2E evidence covers OpenTofu 1.13.2 on Linux AMD64/ARM64, macOS 15 ARM64, and Windows Server 2025 AMD64. This does not establish compatibility with other OS releases, architectures, or OpenTofu versions. macOS and Windows commands below describe build/install steps; consult the compatibility matrix for exact runtime coverage.
 
@@ -17,10 +20,10 @@ This guide installs the companion executable locally. It does not install NEXUS-
 From a clean checkout at the reviewed commit:
 
 ```sh
-go test -count=1 ./...
-go vet ./...
+(cd adapters/opentofu && go test -count=1 ./...)
+(cd adapters/opentofu && go vet ./...)
 mkdir -p "$HOME/.local/bin"
-go build -trimpath -buildvcs=false -o "$HOME/.local/bin/nexusq-keyprovider" .
+(cd adapters/opentofu && go build -trimpath -buildvcs=false -o "$HOME/.local/bin/nexusq-keyprovider" .)
 chmod 0755 "$HOME/.local/bin/nexusq-keyprovider"
 ```
 
@@ -36,7 +39,7 @@ Use the same Go build command, with an installation path such as `$HOME/.local/b
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-go build -trimpath -buildvcs=false -o "$HOME/.local/bin/nexusq-keyprovider" .
+(cd adapters/opentofu && go build -trimpath -buildvcs=false -o "$HOME/.local/bin/nexusq-keyprovider" .)
 chmod 0755 "$HOME/.local/bin/nexusq-keyprovider"
 ```
 
@@ -49,9 +52,11 @@ From the repository root:
 ```powershell
 $installDir = Join-Path $env:LOCALAPPDATA "NEXUSQ\bin"
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+Push-Location adapters/opentofu
 go test -count=1 ./...
 go vet ./...
 go build -trimpath -buildvcs=false -o (Join-Path $installDir "nexusq-keyprovider.exe") .
+Pop-Location
 ```
 
 Use the full executable path in the OpenTofu configuration. Windows runtime behavior has not yet been E2E tested.

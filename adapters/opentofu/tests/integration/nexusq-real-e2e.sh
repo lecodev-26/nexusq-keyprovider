@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 NEXUSQ_ROOT="${NEXUSQ_SOURCE_DIR:-$ROOT/../nexusq}"
 TMP="$(mktemp -d)"
 SERVER_PID=""
@@ -72,7 +72,7 @@ echo "== Build provider against the real NEXUS-Q service binaries =="
 test -x "$CLI_BIN"
 test -x "$SERVER_BIN"
 (
-  cd "$ROOT"
+  cd "$ROOT/adapters/opentofu"
   go build -trimpath -o "$PROVIDER_BIN" .
 )
 chmod 700 "$PROVIDER_BIN"
@@ -200,7 +200,7 @@ grep -q "decrypted payload context_id does not match" "$TMP/tampered-context.err
 echo "== Real NEXUS-Q: local state and saved-plan encryption =="
 mkdir "$TMP/local"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_BIN|g" \
-  "$ROOT/integration/main.tf" >"$TMP/local/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/main.tf" >"$TMP/local/main.tf"
 (
   cd "$TMP/local"
   tofu init -input=false
@@ -253,7 +253,7 @@ unlock_server
 
 echo "== Real NEXUS-Q: HTTP remote-state persistence and recovery =="
 start_backend() {
-  python3 -u "$ROOT/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
+  python3 -u "$ROOT/adapters/opentofu/tests/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
   BACKEND_PID=$!
   wait_for_url "$BACKEND_URL/health"
 }
@@ -265,7 +265,7 @@ stop_backend() {
 start_backend
 mkdir "$TMP/remote-write"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_BIN|g" \
-  "$ROOT/integration/remote-http.tf" >"$TMP/remote-write/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-http.tf" >"$TMP/remote-write/main.tf"
 (
   cd "$TMP/remote-write"
   tofu init -input=false
@@ -278,7 +278,7 @@ stop_backend
 start_backend
 mkdir "$TMP/remote-read"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_BIN|g" \
-  "$ROOT/integration/remote-http.tf" >"$TMP/remote-read/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-http.tf" >"$TMP/remote-read/main.tf"
 (
   cd "$TMP/remote-read"
   tofu init -input=false -reconfigure

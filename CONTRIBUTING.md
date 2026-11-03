@@ -1,32 +1,38 @@
 # Contributing
 
-Thanks for your interest in NEXUS-Q Key Provider.
+Thanks for helping build NEXUS-Q Key Provider Integrations.
+
+This is one repository for multiple external adapters. Every adapter belongs in `adapters/<project>/` and owns its source, native protocol implementation, tests, fixtures, documentation, compatibility evidence, scripts, and release artifacts. Do not create a new repository for each integration.
 
 ## Before contributing
 
-- Open an issue or discussion to describe substantial changes before starting implementation.
-- Keep changes focused and explain their security and compatibility impact.
-- Do not include credentials, real keys, state files, plans, or private infrastructure details.
-- Do not claim support for an integration until it has dedicated tests and documented validation.
+- Read the README and the target adapter's README, contribution notes, and threat model.
+- Keep changes focused and explain security, compatibility, and operational impact.
+- Never commit credentials, real keys, state files, plans, or private infrastructure details.
+- Do not claim support until dedicated tests and documented validation exist.
+- Do not duplicate or modify the NEXUS-Q cryptographic engine as part of adapter work.
 
-## Development checks
+## Development
 
-Use a supported Go toolchain (Go 1.26 or newer):
+The root Makefile delegates to the current Go adapter:
 
-```sh
-gofmt -w .
-go test ./...
-go vet ./...
-```
+    make test-opentofu
+    make vet-opentofu
+    make fmt-check-opentofu
+    make build-opentofu
 
-For security-sensitive changes, add tests for failure paths as well as successful behavior. Run the race detector on a supported host when available:
+Run adapter-specific commands from that adapter's directory. Each adapter may use a different language, runtime, formatter, linter, and test framework; its README must document the exact commands.
 
-```sh
-go test -race ./...
-```
+## Adapter boundaries
 
-## Integration changes
+Each adapter owns its native external protocol or plugin contract, NEXUS-Q API mapping, configuration, context binding, metadata format, key lifecycle, error semantics, tests, compatibility matrix, release scripts, and operator documentation.
 
-The OpenTofu adapter must preserve the External Key Provider protocol contract: protocol output belongs on stdout, diagnostics belong on stderr, and failures must exit non-zero. Never log secrets, bearer tokens, or plaintext data-encryption keys.
+Do not force a common protocol or abstraction onto unrelated external projects. Extract shared components only after a concrete common requirement is demonstrated and the security boundary remains clear.
 
-Other integrations should be implemented as separate adapters with their own protocol documentation and compatibility tests. Do not imply that the current OpenTofu adapter is a generic provider for unrelated tools.
+## Validation and claims
+
+Mark an adapter implemented only after code, automated tests, integration tests, documentation, and compatibility evidence exist. Distinguish CI fixtures from tests against a real NEXUS-Q service or real external backend. Passing CI is not an independent security audit or production certification.
+
+## Releases
+
+Use adapter-scoped Git tags and GitHub Releases. Follow the target adapter's release documentation and keep downloadable assets prefixed with nexusq-keyprovider-<adapter>-.

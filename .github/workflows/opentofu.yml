@@ -24,14 +24,14 @@ jobs:
           check-latest: true
           cache: false
       - name: Verify formatting
-        run: test -z "$(gofmt -l .)"
+        run: cd adapters/opentofu && test -z "$(gofmt -l .)"
       - name: Test
-        run: go test -count=1 ./...
+        run: cd adapters/opentofu && go test -count=1 ./...
       - name: Vet
-        run: go vet ./...
+        run: cd adapters/opentofu && go vet ./...
       - name: Race detector
         if: matrix.go == '1.27.x'
-        run: go test -race -count=1 ./...
+        run: cd adapters/opentofu && go test -race -count=1 ./...
 
   fuzz:
     name: Fuzz security boundaries
@@ -45,15 +45,15 @@ jobs:
           check-latest: true
           cache: false
       - name: Fuzz metadata parser
-        run: go test -run='^$' -fuzz=FuzzReadMetadata -fuzztime=20s
+        run: cd adapters/opentofu && go test . -run='^$' -fuzz=FuzzReadMetadata -fuzztime=20s
       - name: Fuzz NEXUS-Q URL validation
-        run: go test -run='^$' -fuzz=FuzzValidateBaseURL -fuzztime=20s
+        run: cd adapters/opentofu && go test . -run='^$' -fuzz=FuzzValidateBaseURL -fuzztime=20s
       - name: Fuzz provider metadata validation
-        run: go test -run='^$' -fuzz=FuzzParseProviderMetadata -fuzztime=20s
+        run: cd adapters/opentofu && go test . -run='^$' -fuzz=FuzzParseProviderMetadata -fuzztime=20s
       - name: Fuzz wrapped DEK payload decoder
-        run: go test -run='^$' -fuzz=FuzzDecodeWrappedDEK -fuzztime=20s
+        run: cd adapters/opentofu && go test . -run='^$' -fuzz=FuzzDecodeWrappedDEK -fuzztime=20s
       - name: Fuzz API response parser
-        run: go test -run='^$' -fuzz=FuzzDecodeAPIResponse -fuzztime=20s
+        run: cd adapters/opentofu && go test . -run='^$' -fuzz=FuzzDecodeAPIResponse -fuzztime=20s
 
   cross-build:
     name: Cross-build (${{ matrix.goos }}/${{ matrix.goarch }})
@@ -82,9 +82,10 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
-        run: go build -trimpath -o /tmp/nexusq-keyprovider .
+        run: cd adapters/opentofu && go build -trimpath -o /tmp/nexusq-keyprovider .
 
   release-build-repro:
+    if: github.ref_type != 'tag' || startsWith(github.ref, 'refs/tags/opentofu/')
     name: Reproducible release build (Go 1.27.2)
     runs-on: ubuntu-24.04
     permissions:
@@ -102,52 +103,52 @@ jobs:
       - name: Verify release build toolchain
         run: test "$(go version | awk '{print $3}')" = 'go1.27.2'
       - name: Prepare release output directory
-        run: mkdir -p dist
+        run: mkdir -p adapters/opentofu/dist
       - name: Generate source SBOM (SPDX JSON)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          path: .
+          path: adapters/opentofu
           format: spdx-json
-          output-file: dist/sbom-source.spdx.json
-          artifact-name: nexusq-keyprovider-source-sbom.spdx.json
+          output-file: adapters/opentofu/dist/sbom-source.spdx.json
+          artifact-name: nexusq-keyprovider-opentofu-source-sbom.spdx.json
           syft-version: v1.55.0
           upload-artifact: false
           upload-release-assets: false
       - name: Build all release targets twice with isolated caches
-        run: bash scripts/release-build.sh
+        run: bash adapters/opentofu/scripts/release-build.sh
       - name: Verify generated SHA-256 checksums
-        working-directory: dist
+        working-directory: adapters/opentofu/dist
         run: sha256sum --check SHA256SUMS
       - name: Stage release binaries for SBOM scan
         run: |
-          mkdir -p dist/release-binaries
-          cp dist/nexusq-keyprovider-* dist/release-binaries/
+          mkdir -p adapters/opentofu/dist/release-binaries
+          cp adapters/opentofu/dist/nexusq-keyprovider-* adapters/opentofu/dist/release-binaries/
       - name: Generate release-binary SBOM (SPDX JSON)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          path: dist/release-binaries
+          path: adapters/opentofu/dist/release-binaries
           format: spdx-json
-          output-file: dist/sbom-release-artifacts.spdx.json
-          artifact-name: nexusq-keyprovider-release-artifacts-sbom.spdx.json
+          output-file: adapters/opentofu/dist/sbom-release-artifacts.spdx.json
+          artifact-name: nexusq-keyprovider-opentofu-release-artifacts-sbom.spdx.json
           syft-version: v1.55.0
           upload-artifact: false
           upload-release-assets: false
       - name: Remove temporary SBOM scan staging directory
-        run: rm -rf dist/release-binaries
+        run: rm -rf adapters/opentofu/dist/release-binaries
       - name: Inventory direct CI build actions and tools (SPDX JSON)
         env:
           SYFT_VERSION: v1.55.0
-        run: python3 scripts/generate-ci-sbom.py --output dist/sbom-ci-environment.spdx.json --manifest dist/BUILD-ENVIRONMENT.txt --syft-version "$SYFT_VERSION"
+        run: python3 adapters/opentofu/scripts/generate-ci-sbom.py --output adapters/opentofu/dist/sbom-ci-environment.spdx.json --manifest adapters/opentofu/dist/BUILD-ENVIRONMENT.txt --syft-version "$SYFT_VERSION"
       - name: Refresh checksums and assemble release candidate bundle
         run: |
           set -euo pipefail
-          cd dist
+          cd adapters/opentofu/dist
           sha256sum nexusq-keyprovider-* sbom-source.spdx.json sbom-release-artifacts.spdx.json sbom-ci-environment.spdx.json BUILD-INFO.txt BUILD-ENVIRONMENT.txt > SHA256SUMS
-          tar -czf nexusq-keyprovider-release-candidates.tar.gz \
-            nexusq-keyprovider-linux-amd64 \
-            nexusq-keyprovider-linux-arm64 \
-            nexusq-keyprovider-darwin-arm64 \
-            nexusq-keyprovider-windows-amd64.exe \
+          tar -czf nexusq-keyprovider-opentofu-release-candidates.tar.gz \
+            nexusq-keyprovider-opentofu-linux-amd64 \
+            nexusq-keyprovider-opentofu-linux-arm64 \
+            nexusq-keyprovider-opentofu-darwin-arm64 \
+            nexusq-keyprovider-opentofu-windows-amd64.exe \
             sbom-source.spdx.json \
             sbom-release-artifacts.spdx.json \
             sbom-ci-environment.spdx.json \
@@ -156,45 +157,46 @@ jobs:
         id: provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
+          subject-path: adapters/opentofu/dist/nexusq-keyprovider-opentofu-release-candidates.tar.gz
       - name: Attest source SBOM
         id: sbom_source
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
-          sbom-path: dist/sbom-source.spdx.json
+          subject-path: adapters/opentofu/dist/nexusq-keyprovider-opentofu-release-candidates.tar.gz
+          sbom-path: adapters/opentofu/dist/sbom-source.spdx.json
       - name: Attest release-binary SBOM
         id: sbom_release
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
-          sbom-path: dist/sbom-release-artifacts.spdx.json
+          subject-path: adapters/opentofu/dist/nexusq-keyprovider-opentofu-release-candidates.tar.gz
+          sbom-path: adapters/opentofu/dist/sbom-release-artifacts.spdx.json
       - name: Attest CI-environment SBOM
         id: sbom_ci
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
-          subject-path: dist/nexusq-keyprovider-release-candidates.tar.gz
-          sbom-path: dist/sbom-ci-environment.spdx.json
+          subject-path: adapters/opentofu/dist/nexusq-keyprovider-opentofu-release-candidates.tar.gz
+          sbom-path: adapters/opentofu/dist/sbom-ci-environment.spdx.json
       - name: Preserve Sigstore bundles for independent verification
         run: |
-          cp "${{ steps.provenance.outputs.bundle-path }}" dist/provenance.sigstore.json
-          cp "${{ steps.sbom_source.outputs.bundle-path }}" dist/source-sbom-attestation.sigstore.json
-          cp "${{ steps.sbom_release.outputs.bundle-path }}" dist/release-sbom-attestation.sigstore.json
-          cp "${{ steps.sbom_ci.outputs.bundle-path }}" dist/ci-sbom-attestation.sigstore.json
+          cp "${{ steps.provenance.outputs.bundle-path }}" adapters/opentofu/dist/provenance.sigstore.json
+          cp "${{ steps.sbom_source.outputs.bundle-path }}" adapters/opentofu/dist/source-sbom-attestation.sigstore.json
+          cp "${{ steps.sbom_release.outputs.bundle-path }}" adapters/opentofu/dist/release-sbom-attestation.sigstore.json
+          cp "${{ steps.sbom_ci.outputs.bundle-path }}" adapters/opentofu/dist/ci-sbom-attestation.sigstore.json
       - name: Upload release candidate bundle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: nexusq-keyprovider-release-candidates
+          name: nexusq-keyprovider-opentofu-release-candidates
           path: |
-            dist/nexusq-keyprovider-release-candidates.tar.gz
-            dist/provenance.sigstore.json
-            dist/source-sbom-attestation.sigstore.json
-            dist/release-sbom-attestation.sigstore.json
-            dist/ci-sbom-attestation.sigstore.json
+            adapters/opentofu/dist/nexusq-keyprovider-opentofu-release-candidates.tar.gz
+            adapters/opentofu/dist/provenance.sigstore.json
+            adapters/opentofu/dist/source-sbom-attestation.sigstore.json
+            adapters/opentofu/dist/release-sbom-attestation.sigstore.json
+            adapters/opentofu/dist/ci-sbom-attestation.sigstore.json
           if-no-files-found: error
           retention-days: 30
 
   independent-rebuild-check:
+    if: github.ref_type != 'tag' || startsWith(github.ref, 'refs/tags/opentofu/')
     name: Independent runner rebuild comparison
     needs: release-build-repro
     runs-on: ubuntu-24.04
@@ -211,47 +213,47 @@ jobs:
       - name: Download release candidate bundle from primary runner
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: nexusq-keyprovider-release-candidates
+          name: nexusq-keyprovider-opentofu-release-candidates
           path: ${{ runner.temp }}/candidate
       - name: Verify bundle checksums
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/expected"
-          tar -xzf "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" -C "$RUNNER_TEMP/expected"
+          tar -xzf "$RUNNER_TEMP/candidate/nexusq-keyprovider-opentofu-release-candidates.tar.gz" -C "$RUNNER_TEMP/expected"
           cd "$RUNNER_TEMP/expected"
           sha256sum --check SHA256SUMS
       - name: Fetch Sigstore trusted root
         run: gh attestation trusted-root > "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Verify signed build provenance on the separate runner
         run: |
-          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-opentofu-release-candidates.tar.gz" \
             --repo lecodev-26/nexusq-keyprovider \
             --predicate-type https://slsa.dev/provenance/v1 \
             --bundle "$RUNNER_TEMP/candidate/provenance.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Verify source SBOM attestation on the separate runner
         run: |
-          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-opentofu-release-candidates.tar.gz" \
             --repo lecodev-26/nexusq-keyprovider \
             --predicate-type https://spdx.dev/Document/v2.3 \
             --bundle "$RUNNER_TEMP/candidate/source-sbom-attestation.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Verify release-binary SBOM attestation on the separate runner
         run: |
-          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-opentofu-release-candidates.tar.gz" \
             --repo lecodev-26/nexusq-keyprovider \
             --predicate-type https://spdx.dev/Document/v2.3 \
             --bundle "$RUNNER_TEMP/candidate/release-sbom-attestation.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Verify CI-environment SBOM attestation on the separate runner
         run: |
-          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-release-candidates.tar.gz" \
+          gh attestation verify "$RUNNER_TEMP/candidate/nexusq-keyprovider-opentofu-release-candidates.tar.gz" \
             --repo lecodev-26/nexusq-keyprovider \
             --predicate-type https://spdx.dev/Document/v2.3 \
             --bundle "$RUNNER_TEMP/candidate/ci-sbom-attestation.sigstore.json" \
             --custom-trusted-root "$RUNNER_TEMP/trusted_root.jsonl"
       - name: Rebuild on a separate runner with fresh Go caches
-        run: bash scripts/release-build.sh "$RUNNER_TEMP/rebuilt"
+        run: bash adapters/opentofu/scripts/release-build.sh "$RUNNER_TEMP/rebuilt"
       - name: Compare independent build outputs byte-for-byte
         run: |
           set -euo pipefail
@@ -266,10 +268,10 @@ jobs:
             cat "$RUNNER_TEMP/expected/BUILD-ENVIRONMENT.txt"
           } > "$report"
           for file in \
-            nexusq-keyprovider-linux-amd64 \
-            nexusq-keyprovider-linux-arm64 \
-            nexusq-keyprovider-darwin-arm64 \
-            nexusq-keyprovider-windows-amd64.exe; do
+            nexusq-keyprovider-opentofu-linux-amd64 \
+            nexusq-keyprovider-opentofu-linux-arm64 \
+            nexusq-keyprovider-opentofu-darwin-arm64 \
+            nexusq-keyprovider-opentofu-windows-amd64.exe; do
             cmp "$RUNNER_TEMP/expected/$file" "$RUNNER_TEMP/rebuilt/$file"
             printf '%s  %s\n' "$(sha256sum "$RUNNER_TEMP/rebuilt/$file" | awk '{print $1}')" "$file" >> "$report"
           done
@@ -278,7 +280,7 @@ jobs:
       - name: Upload independent rebuild evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: nexusq-keyprovider-independent-rebuild-report
+          name: nexusq-keyprovider-opentofu-independent-rebuild-report
           path: ${{ runner.temp }}/independent-rebuild-report.txt
           if-no-files-found: error
           retention-days: 30
@@ -325,7 +327,7 @@ jobs:
           sudo install -m 0755 "$RUNNER_TEMP/opentofu/tofu" /usr/local/bin/tofu
           tofu version
       - name: Run end-to-end integration suite
-        run: bash integration/e2e.sh
+        run: bash adapters/opentofu/tests/integration/e2e.sh
 
   native-runtime:
     name: Native runtime E2E (${{ matrix.platform }})
@@ -363,13 +365,14 @@ jobs:
       - name: Run native Go tests and vet
         shell: bash
         run: |
+          cd adapters/opentofu
           go test -count=1 ./...
           go vet ./...
       - name: Run native OpenTofu provider protocol and recovery E2E
         env:
           PYTHON: ${{ matrix.python }}
         shell: bash
-        run: bash integration/e2e.sh
+        run: bash adapters/opentofu/tests/integration/e2e.sh
 
   s3mock-e2e:
     name: OpenTofu S3 backend E2E (S3Mock)
@@ -387,9 +390,9 @@ jobs:
           tofu_version: '1.13.2'
           tofu_wrapper: false
       - name: Check S3 backend HCL formatting
-        run: tofu fmt -check integration/remote-s3.tf
+        run: tofu fmt -check adapters/opentofu/tests/integration/remote-s3.tf
       - name: Run S3-compatible backend integration suite
-        run: bash integration/s3mock-e2e.sh
+        run: bash adapters/opentofu/tests/integration/s3mock-e2e.sh
 
   nexusq-real-e2e:
     name: Real NEXUS-Q E2E (Linux AMD64)
@@ -428,4 +431,4 @@ jobs:
         working-directory: nexusq-keyprovider
         env:
           NEXUSQ_SOURCE_DIR: ${{ github.workspace }}/nexus-q
-        run: bash integration/nexusq-real-e2e.sh
+        run: bash adapters/opentofu/tests/integration/nexusq-real-e2e.sh

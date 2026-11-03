@@ -79,11 +79,11 @@ A qualified independent reviewer should assess at least the following scope:
 ### Evidence package for an auditor
 
 - `README.md`, `DESIGN.md`, `SECURITY.md`
-- `docs/THREAT-MODEL-REVIEW.md` (internal review only)
-- `docs/CONTEXT-BINDING-DESIGN.md`
-- `docs/OPENTOFU-COMPATIBILITY.md`
-- `docs/RELEASE-BUILDS.md` and `docs/PROVENANCE.md`
-- `docs/AWS-S3-VALIDATION.md` (prepared runbook; not executed evidence)
+- `THREAT-MODEL-REVIEW.md` (internal review only)
+- `CONTEXT-BINDING-DESIGN.md`
+- `OPENTOFU-COMPATIBILITY.md`
+- `RELEASE-BUILDS.md` and `PROVENANCE.md`
+- `AWS-S3-VALIDATION.md` (prepared runbook; not executed evidence)
 - Source commit under review and associated CI workflow run/artifacts
 
 The reviewer should receive a fixed commit SHA and reproducible evidence, not a moving branch. Findings should be classified by severity, include reproduction steps, and distinguish exploitable vulnerabilities from hardening recommendations. Any public report should be coordinated with the project maintainer and avoid exposing exploit details before remediation.

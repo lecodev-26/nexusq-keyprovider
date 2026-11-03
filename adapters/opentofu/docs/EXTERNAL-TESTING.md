@@ -14,7 +14,7 @@ Thanks for helping evaluate this project. This guide is for operators who can te
 
 This repository provides an external executable implementing OpenTofu External Key Provider protocol v1. It connects OpenTofu state and saved-plan encryption to NEXUS-Q envelope encryption. It does not modify OpenTofu core.
 
-The current implementation is OpenTofu-specific. Other IaC, Kubernetes, and CI/CD integrations are future exploration, not available features.
+This guide covers only the OpenTofu adapter. The repository is intended to host multiple adapters; fnox is a planned candidate, not an available integration. Other IaC, Kubernetes, and CI/CD integrations remain exploratory until implemented and validated.
 
 Please focus on:
 
@@ -37,7 +37,7 @@ Please focus on:
 7. Do not enable `NEXUSQ_ALLOW_LEGACY_V1=true` unless you are deliberately testing a migration with disposable v1 test data. It defaults to false.
 8. Do not expose the test-only mock services or NEXUS-Q test server to an untrusted network.
 
-The context ID is an operator-supplied trust-domain label. It is not authenticated workspace/state identity and does not prevent replay or rollback of an older valid envelope within the same context. See the README security notes before testing.
+The context ID is an operator-supplied trust-domain label. It is not authenticated workspace/state identity and does not prevent replay or rollback of an older valid envelope within the same context. See the adapter [security policy and threat model](SECURITY.md) before testing.
 
 ## 3. Choose a test path
 
@@ -65,9 +65,9 @@ tofu version
 python3 --version
 curl --version
 
-go test -count=1 ./...
-go vet ./...
-bash integration/e2e.sh
+(cd adapters/opentofu && go test -count=1 ./...)
+(cd adapters/opentofu && go vet ./...)
+bash adapters/opentofu/tests/integration/e2e.sh
 ```
 
 Expected result: the script ends with a `PASS` line confirming local state, saved plans, prior-key recovery/rotation, and HTTP remote-state recovery. It also checks that selected plaintext markers are absent from the tested encrypted state and saved-plan files.
@@ -126,7 +126,7 @@ Include:
 
 Never attach or paste credentials, tokens, vault files, state files, saved plans, plaintext DEKs, provider metadata/envelopes, or logs containing sensitive values. Redact hostnames, account IDs, paths, and identifiers if they reveal private infrastructure details.
 
-For suspected security vulnerabilities, follow [SECURITY.md](../SECURITY.md) and use the private reporting instructions there. Do not publish exploit details or sensitive evidence in a public issue or discussion.
+For suspected security vulnerabilities, follow [SECURITY.md](../../../SECURITY.md) and use the private reporting instructions there. Do not publish exploit details or sensitive evidence in a public issue or discussion.
 
 ## 6. Feedback questions
 

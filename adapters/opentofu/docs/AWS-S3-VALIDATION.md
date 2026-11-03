@@ -36,7 +36,7 @@ Do not continue if the identity or account is not the intended test environment.
 
 ## Configure the S3 backend
 
-Start from `integration/remote-s3.tf`, but create a temporary copy outside the repository and make these changes in its `backend "s3"` block:
+Start from `adapters/opentofu/tests/integration/remote-s3.tf`, but create a temporary copy outside the repository and make these changes in its `backend "s3"` block:
 
 1. Replace `bucket`, `key`, and `region` with the dedicated test bucket, a unique test object key, and its actual region.
 2. Remove the S3Mock `endpoints` override entirely.

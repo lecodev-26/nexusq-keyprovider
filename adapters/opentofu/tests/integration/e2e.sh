@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 TMP="$(mktemp -d)"
 MOCK_PID=""
 BACKEND_PID=""
@@ -51,9 +51,9 @@ wait_for_mock() {
 
 echo "== Build provider and test-only NEXUS-Q API fixture =="
 (
-  cd "$ROOT"
+  cd "$ROOT/adapters/opentofu"
   go build -trimpath -o "$TMP/$PROVIDER_NAME" .
-  go build -trimpath -o "$TMP/$MOCK_NAME" ./integration/mock-nexusq
+  go build -trimpath -o "$TMP/$MOCK_NAME" ./tests/integration/mock-nexusq
 )
 if [[ "$PROVIDER_NAME" != *.exe ]]; then chmod +x "$TMP/$PROVIDER_NAME"; fi
 
@@ -78,7 +78,7 @@ export NEXUSQ_HTTP_BACKEND_LOCK="$TMP_NATIVE/remote.lock"
 echo "== Local state and saved-plan encryption =="
 mkdir "$TMP/local"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
-  "$ROOT/integration/main.tf" > "$TMP/local/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/main.tf" > "$TMP/local/main.tf"
 (
   cd "$TMP/local"
   tofu init -input=false
@@ -115,7 +115,7 @@ PY
 
 echo "== HTTP remote-state persistence and clean-workdir recovery =="
 start_backend() {
-  "$PYTHON_BIN" -u "$ROOT/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
+  "$PYTHON_BIN" -u "$ROOT/adapters/opentofu/tests/integration/fixtures/http-backend.py" >"$TMP/http-backend.log" 2>&1 &
   BACKEND_PID=$!
   wait_for_url http://127.0.0.1:18444/health
 }
@@ -127,7 +127,7 @@ stop_backend() {
 start_backend
 mkdir "$TMP/remote-write"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
-  "$ROOT/integration/remote-http.tf" > "$TMP/remote-write/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-http.tf" > "$TMP/remote-write/main.tf"
 (
   cd "$TMP/remote-write"
   tofu init -input=false
@@ -140,7 +140,7 @@ stop_backend
 start_backend
 mkdir "$TMP/remote-read"
 sed "s|/absolute/path/to/nexusq-keyprovider|$PROVIDER_PATH|g" \
-  "$ROOT/integration/remote-http.tf" > "$TMP/remote-read/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-http.tf" > "$TMP/remote-read/main.tf"
 (
   cd "$TMP/remote-read"
   tofu init -input=false -reconfigure

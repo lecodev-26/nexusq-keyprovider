@@ -1,10 +1,9 @@
-# Local build outputs
-/dist/*
-!/dist/.gitkeep
-/build/
-/coverage.out
-*.test
-*.out
+# Generated release artifacts are isolated within each adapter.
+**/dist/*
+**/build/
+**/coverage.out
+**/*.test
+**/*.out
 
 # Editor and OS files
 .DS_Store

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 TMP="$(mktemp -d)"
 MOCK_PID=""
 S3MOCK_CONTAINER="nexusq-s3mock-e2e-$$"
@@ -62,9 +62,9 @@ start_s3mock() {
 
 echo "== Build provider and test-only NEXUS-Q API fixture =="
 (
-  cd "$ROOT"
+  cd "$ROOT/adapters/opentofu"
   go build -trimpath -o "$TMP/nexusq-keyprovider" .
-  go build -trimpath -o "$TMP/mock-nexusq" ./integration/mock-nexusq
+  go build -trimpath -o "$TMP/mock-nexusq" ./tests/integration/mock-nexusq
 )
 chmod +x "$TMP/nexusq-keyprovider"
 
@@ -89,7 +89,7 @@ curl --fail --silent --show-error --request PUT --output /dev/null "$S3_ENDPOINT
 echo "== Apply encrypted state and saved plan to S3 backend =="
 mkdir "$TMP/s3-write"
 sed "s|/absolute/path/to/nexusq-keyprovider|$TMP/nexusq-keyprovider|g" \
-  "$ROOT/integration/remote-s3.tf" > "$TMP/s3-write/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-s3.tf" > "$TMP/s3-write/main.tf"
 (
   cd "$TMP/s3-write"
   tofu init -input=false
@@ -118,7 +118,7 @@ curl --fail --silent --show-error --head \
 
 mkdir "$TMP/s3-read"
 sed "s|/absolute/path/to/nexusq-keyprovider|$TMP/nexusq-keyprovider|g" \
-  "$ROOT/integration/remote-s3.tf" > "$TMP/s3-read/main.tf"
+  "$ROOT/adapters/opentofu/tests/integration/remote-s3.tf" > "$TMP/s3-read/main.tf"
 (
   cd "$TMP/s3-read"
   tofu init -input=false

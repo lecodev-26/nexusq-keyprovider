@@ -1,3 +1,5 @@
+> **Scope:** This document describes the OpenTofu adapter only. It is not a universal adapter protocol or a design specification for every integration in this repository.
+
 # Design
 
 ## Trust boundaries

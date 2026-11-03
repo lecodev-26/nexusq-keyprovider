@@ -22,16 +22,16 @@ The core E2E workflow downloads the exact Linux AMD64 archive directly from the 
 Install the exact OpenTofu version and the requirements listed in the README, then run:
 
 ```sh
-bash integration/e2e.sh
+bash adapters/opentofu/tests/integration/e2e.sh
 ```
 
 For the S3Mock-specific test (currently exercised in CI on 1.13.2 only):
 
 ```sh
-bash integration/s3mock-e2e.sh
+bash adapters/opentofu/tests/integration/s3mock-e2e.sh
 ```
 
-For the real NEXUS-Q service integration (currently exercised in CI on 1.13.2 only), see the instructions in the README and `integration/nexusq-real-e2e.sh`.
+For the real NEXUS-Q service integration (currently exercised in CI on 1.13.2 only), see the instructions in the README and `adapters/opentofu/tests/integration/nexusq-real-e2e.sh`.
 
 ## Support policy
 
