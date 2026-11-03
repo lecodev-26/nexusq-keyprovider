@@ -1,10 +1,13 @@
-.PHONY: test test-opentofu vet vet-opentofu fmt-check fmt-check-opentofu build build-opentofu release-build-opentofu
+.PHONY: test test-opentofu test-fnox vet vet-opentofu fmt-check fmt-check-opentofu build build-opentofu release-build-opentofu
 
 # Root convenience targets delegate to adapter-local toolchains and tests.
 test: test-opentofu
 
 test-opentofu:
 	cd adapters/opentofu && go test -count=1 ./...
+
+test-fnox:
+	python3 adapters/fnox/tests/test_cli.py
 
 vet: vet-opentofu
 

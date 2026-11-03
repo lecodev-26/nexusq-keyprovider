@@ -11,7 +11,7 @@ NEXUS-Q itself is a separate cryptographic engine. This repository consumes its 
 | Adapter | Implementation | Status | Everything for this adapter |
 | --- | --- | --- | --- |
 | OpenTofu | Go · External Key Provider protocol v1 | Implemented · experimental | [adapters/opentofu/](adapters/opentofu/) |
-| fnox | Lua 5.4 · custom provider plugin | Research / planned | [adapters/fnox/](adapters/fnox/) |
+| fnox | Lua 5.4 · custom provider plugin | Implemented · experimental (mock suite and real-service GitHub Actions integration passed on Ubuntu; see adapter validation notes) | [adapters/fnox/](adapters/fnox/) |
 
 Each adapter directory is self-contained: source, tests, fixtures, documentation, compatibility information, build/release scripts, and generated artifacts all live with that adapter. The root contains only repository-wide governance, the adapter catalog, GitHub-required workflow entrypoints (one per adapter), and cross-adapter planning.
 
@@ -32,6 +32,9 @@ nexusq-keyprovider/
 │   │   ├── CHANGELOG.md
 │   │   └── ROADMAP.md
 │   └── fnox/
+│       ├── provider.lua
+│       ├── tests/
+│       ├── docs/
 │       └── README.md
 ├── .github/workflows/    # GitHub-required adapter workflow entrypoints
 ├── CONTRIBUTING.md       # Repository-wide contribution rules
@@ -52,18 +55,19 @@ Only genuinely common, security-reviewed components should be extracted into sha
 Start in the adapter's own README:
 
 - [OpenTofu adapter guide](adapters/opentofu/README.md)
-- [fnox adapter research and design](adapters/fnox/README.md)
+- [fnox adapter guide and implementation](adapters/fnox/README.md)
 
-From the repository root, the Makefile provides convenience commands for the current Go adapter:
+From the repository root, the Makefile provides convenience commands for each adapter. The fnox integration suite requires fnox 1.47.0+ and curl 8.4.0+ on PATH:
 
 ```sh
 make test-opentofu
 make vet-opentofu
 make fmt-check-opentofu
 make build-opentofu
+make test-fnox
 ```
 
-Adapter-specific tests, scripts, docs, and release artifacts remain inside the adapter folder. GitHub requires workflow entrypoints to live in .github/workflows/. Each entrypoint is adapter-scoped (currently opentofu.yml); future adapters get their own workflow file and release pipeline.
+Adapter-specific tests, scripts, docs, and release artifacts remain inside the adapter folder. GitHub requires workflow entrypoints to live in .github/workflows/. Each entrypoint is adapter-scoped: opentofu.yml and fnox.yml run automatically on relevant push and pull-request changes through path filters, and both retain workflow_dispatch. The fnox workflow runs the mock CLI suite and a real encrypt/decrypt round trip against NEXUS-Q v4.1.2 built from pinned source.
 
 ## Releases and artifacts
 
@@ -78,7 +82,7 @@ See the [integration portfolio roadmap](ROADMAP.md) for the repository-level pla
 
 ## Security and maturity
 
-The OpenTofu adapter is experimental. Its CI results and compatibility claims apply only to the versions and environments recorded in its own documentation. No adapter should be described as independently audited, certified, or production-approved without published evidence.
+Both OpenTofu and fnox adapters are experimental. Their CI results and compatibility claims apply only to the versions and environments recorded in their own documentation. No adapter should be described as independently audited, certified, or production-approved without published evidence.
 
 See [SECURITY.md](SECURITY.md) and the adapter-specific threat model before using an integration with valuable secrets or infrastructure state.
 

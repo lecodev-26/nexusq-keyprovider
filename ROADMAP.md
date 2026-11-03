@@ -14,7 +14,7 @@ This roadmap tracks the shared repository and its independent adapters. Each ada
 | Adapter | Status | Detailed roadmap |
 | --- | --- | --- |
 | OpenTofu | Implemented · experimental | [OpenTofu roadmap](adapters/opentofu/ROADMAP.md) |
-| fnox | Research / planned | [fnox adapter plan](adapters/fnox/README.md) |
+| fnox | Implemented · experimental; mock CLI tests and real NEXUS-Q v4.1.2 integration workflow passed on Ubuntu (fnox 1.47.0) | [fnox adapter guide](adapters/fnox/README.md) |
 
 ## Future adapter intake
 

@@ -2,7 +2,22 @@ name: CI
 
 on:
   push:
+    paths:
+      - 'adapters/opentofu/**'
+      - '.github/workflows/opentofu.yml'
+      - 'Makefile'
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'adapters/README.md'
   pull_request:
+    branches: [main]
+    paths:
+      - 'adapters/opentofu/**'
+      - '.github/workflows/opentofu.yml'
+      - 'Makefile'
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'adapters/README.md'
   workflow_dispatch:
 
 permissions:
