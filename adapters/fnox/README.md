@@ -4,11 +4,11 @@
 
 This directory contains a Lua 5.4 custom provider for [fnox](https://github.com/jdx/fnox). It delegates envelope encryption and decryption to the existing NEXUS-Q service; it does not implement cryptography or modify the NEXUS-Q engine.
 
-The adapter has been exercised with the actual fnox 1.47.0 CLI against a deterministic mock API. The dedicated GitHub Actions workflow also builds NEXUS-Q v4.1.2 from an immutable source commit and runs a real-service encrypt/decrypt round trip; its first CI result is pending. The local mock uses reversible Base64 framing, not cryptography. No independent security audit, certification, upstream endorsement, or production approval is claimed.
+The adapter has been tested with the fnox 1.47.0 CLI against a deterministic mock API and in a dedicated GitHub Actions workflow that builds NEXUS-Q v4.1.2 from an immutable source commit and exercises a real-service encrypt/decrypt round trip. The workflow also checks wrong-context rejection, locked-vault failure, and recovery after unlock. The local mock uses reversible Base64 framing, not cryptography. No independent security audit, certification, upstream endorsement, or production approval is claimed.
 
 ## Compatibility and runtime requirements
 
-- fnox **1.47.0 or newer** (embedded Lua 5.4 and the documented hooks and host modules).
+- **Validated with fnox 1.47.0** (embedded Lua 5.4 and the documented hooks and host modules). Other fnox versions have not yet been verified.
 - **curl 8.4.0 or newer** available on PATH.
 - A reachable NEXUS-Q server exposing /v1/keys, /v1/encrypt, and /v1/decrypt.
 - A NEXUS-Q bearer token and an active key identifier.
@@ -113,21 +113,22 @@ These are adapter-side fixed limits. If the NEXUS-Q server is configured with a 
 
 ## Tests
 
-Run the CLI integration suite with fnox 1.47.0+ and curl 8.4.0+ installed:
+Run the CLI integration suite with fnox 1.47.0 and curl 8.4.0+ installed:
 
 ~~~sh
 FNOX_BIN=/path/to/fnox python3 adapters/fnox/tests/test_cli.py
 ~~~
 
-The suite uses a local mock HTTP service and tests set/get, provider test, special-character transport, wrong context, malformed reference, authentication failure, locked vault, POST redirect handling, chunked-response size enforcement, and remote-HTTP rejection.
+The suite uses a local mock HTTP service and tests set/get, provider test, special-character transport, wrong context, malformed reference, authentication failure, locked vault, POST redirect handling, chunked-response size enforcement, and remote-HTTP rejection. The separate real-service workflow validates the NEXUS-Q encrypt/decrypt round trip and the locked/unlocked vault lifecycle.
 
 **The mock is intentionally non-cryptographic.** It wraps the plaintext with a marker and Base64-encodes it so the tests exercise the fnox lifecycle and adapter validation only. Passing this suite is not evidence of NEXUS-Q cryptographic correctness or a real-service integration test.
 
 ## Remaining validation
 
-- The dedicated `.github/workflows/fnox.yml` workflow runs the mock suite and builds NEXUS-Q v4.1.2 from pinned commit `8735e5537bc687ee906ed68bdf119fc8956d9439` for a real local-service round trip, wrong-context rejection, locked-vault handling, and recovery after unlock. The first GitHub Actions result is pending.
+- **Passed:** [GitHub Actions run #2](https://github.com/lecodev-26/nexusq-keyprovider/actions/runs/41719182840), on branch `ci/fnox-real-service` at commit `f3361d11cf614a29a3779eb741a49f5b1f65abbc`. The workflow builds NEXUS-Q v4.1.2 from pinned commit `8735e5537bc687ee906ed68bdf119fc8956d9439`, runs the mock suite, and verifies a real local-service round trip, wrong-context rejection, locked-vault handling, and recovery after unlock. This is evidence for the tested Linux/Ubuntu workflow only, not a general compatibility or production-security claim.
 - Confirm key status/rotation semantics and maximum practical secret size with the real NEXUS-Q envelope implementation.
-- Verify supported curl versions and command behavior on macOS and Windows environments used by fnox operators.
+- Verify plugin behavior and supported curl versions on macOS and Windows environments used by fnox operators.
+- Confirm the upstream maintainers' preferred process for listing or documenting third-party Lua providers.
 - Obtain an independent security review before any production-use claim.
 
 ## Security notes
