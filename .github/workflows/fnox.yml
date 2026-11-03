@@ -1,0 +1,240 @@
+name: fnox adapter CI
+
+on:
+  push:
+    paths:
+      - 'adapters/fnox/**'
+      - '.github/workflows/fnox.yml'
+      - 'Makefile'
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'adapters/README.md'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'adapters/fnox/**'
+      - '.github/workflows/fnox.yml'
+      - 'Makefile'
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'adapters/README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fnox-adapter-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: fnox CLI and real NEXUS-Q v4.1.2 integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - name: Checkout key-provider repository
+        uses: actions/checkout@v4
+
+      - name: Checkout immutable NEXUS-Q v4.1.2 source
+        uses: actions/checkout@v4
+        with:
+          repository: lecodev-26/nexus-q
+          ref: 8735e5537bc687ee906ed68bdf119fc8956d9439
+          path: nexus-q
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Lua syntax checker
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lua5.4
+
+      - name: Verify pinned NEXUS-Q source and build server and CLI
+        working-directory: nexus-q
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "8735e5537bc687ee906ed68bdf119fc8956d9439"
+          grep -q '^version = "4.1.2"$' Cargo.toml
+          cargo build --locked --release -p nexusq-server -p nexusq-cli
+
+      - name: Install fnox CLI
+        run: |
+          cargo install fnox --version 1.47.0 --locked
+          fnox --version
+
+      - name: Verify runtime versions and Lua syntax
+        run: |
+          set -euo pipefail
+          curl --version
+          python3 - <<'PY'
+          import re, subprocess
+          output = subprocess.check_output(["curl", "--version"], text=True)
+          match = re.search(r"^curl (\d+)\.(\d+)\.(\d+)", output)
+          assert match and tuple(map(int, match.groups())) >= (8, 4, 0), output
+          PY
+          luac -p adapters/fnox/provider.lua
+          git diff --check
+
+      - name: Run fnox CLI integration suite against non-cryptographic mock
+        run: |
+          FNOX_BIN="$(command -v fnox)" make test-fnox
+
+      - name: Run real NEXUS-Q encryption round trip through fnox
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          SERVER="$GITHUB_WORKSPACE/nexus-q/target/release/nexusq-server"
+          CLI="$GITHUB_WORKSPACE/nexus-q/target/release/nexusq"
+          test -x "$SERVER"
+          test -x "$CLI"
+
+          export NEXUSQ_VAULT_PATH="$RUNNER_TEMP/nexusq-fnox-test.nqx"
+          export NEXUSQ_SERVER_TOKEN="$(openssl rand -hex 32)"
+          export VAULT_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$NEXUSQ_SERVER_TOKEN"
+          echo "::add-mask::$VAULT_PASSWORD"
+          printf '%s' "$VAULT_PASSWORD" > "$RUNNER_TEMP/nexusq-vault-password"
+
+          "$CLI" vault create "$NEXUSQ_VAULT_PATH" --password-file "$RUNNER_TEMP/nexusq-vault-password"
+
+          # Generate and activate a real AES-256-GCM key before the server opens the vault.
+          KEY_JSON="$("$CLI" --output json key generate "$NEXUSQ_VAULT_PATH" \
+            --algorithm aes256gcm --purpose encrypt \
+            --password-file "$RUNNER_TEMP/nexusq-vault-password" --activate)"
+          export NEXUSQ_KEY_ID="$(printf '%s' "$KEY_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["key_id"])')"
+          test -n "$NEXUSQ_KEY_ID"
+
+          export NEXUSQ_SERVER_ADDR="127.0.0.1:18443"
+          export RUST_LOG="nexusq_server=warn"
+          "$SERVER" > "$RUNNER_TEMP/nexusq-server.log" 2>&1 &
+          SERVER_PID=$!
+          cleanup() {
+            kill "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" 2>/dev/null || true
+            rm -f "$RUNNER_TEMP/nexusq-vault-password"
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:18443/health >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              cat "$RUNNER_TEMP/nexusq-server.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --silent --show-error --fail http://127.0.0.1:18443/health >/dev/null
+
+          # The server opens the vault locked; unlock it through its authenticated API.
+          python3 - <<'PY'
+          import json, os, urllib.request
+          body = json.dumps({"password": os.environ["VAULT_PASSWORD"]}).encode()
+          req = urllib.request.Request(
+              "http://127.0.0.1:18443/v1/vault/unlock",
+              data=body,
+              headers={
+                  "Authorization": "Bearer " + os.environ["NEXUSQ_SERVER_TOKEN"],
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=10) as response:
+              if response.status != 204:
+                  raise SystemExit("NEXUS-Q vault unlock did not return 204")
+          PY
+
+          export NEXUSQ_URL="http://127.0.0.1:18443"
+          export NEXUSQ_TOKEN="$NEXUSQ_SERVER_TOKEN"
+          export NEXUSQ_CONTEXT_ID="github-actions-real-service-v1"
+          export FNOX_NON_INTERACTIVE=1
+
+          PROJECT="$RUNNER_TEMP/fnox-real-project"
+          mkdir -p "$PROJECT"
+          python3 - "$PROJECT/fnox.toml" "$GITHUB_WORKSPACE/adapters/fnox/provider.lua" <<'PY'
+          import sys
+          from pathlib import Path
+          config, provider = map(Path, sys.argv[1:])
+          config.write_text(
+              "[providers.nexusq]\n"
+              'type = "lua"\n'
+              f'plugin = "{provider.as_posix()}"\n\n'
+              "[secrets]\n",
+              encoding="utf-8",
+          )
+          PY
+
+          cd "$PROJECT"
+          fnox provider test nexusq
+
+          # Use a value with quotes, backslashes, a newline and Unicode.
+          python3 - <<'PY'
+          import os, subprocess
+          secret = 'real NEXUS-Q: "quoted"; slash=' + chr(92) + '; line1' + chr(10) + 'line2; unicode=🔐'
+          env = os.environ.copy()
+          stored = subprocess.run(
+              ["fnox", "set", "NEXUSQ_REAL_ROUNDTRIP", "--provider", "nexusq"],
+              input=secret, text=True, capture_output=True, env=env, check=False,
+          )
+          if stored.returncode:
+              raise SystemExit("fnox set failed: " + stored.stderr)
+          config = open("fnox.toml", encoding="utf-8").read()
+          if secret in config or "nexusq-fnox:v1:" not in config:
+              raise SystemExit("fnox.toml did not contain ciphertext-only provider data")
+          resolved = subprocess.run(
+              ["fnox", "get", "NEXUSQ_REAL_ROUNDTRIP"],
+              text=True, capture_output=True, env=env, check=False,
+          )
+          if resolved.returncode or resolved.stdout != secret + chr(10):
+              raise SystemExit("real NEXUS-Q decrypt round trip did not match the original secret")
+          PY
+
+          # The encrypted payload must reject a different trust-domain context.
+          if NEXUSQ_CONTEXT_ID="wrong-context" fnox get NEXUSQ_REAL_ROUNDTRIP >/dev/null 2>&1; then
+            echo "wrong context unexpectedly resolved the secret"
+            exit 1
+          fi
+
+          # A locked vault must fail closed, then work again after an explicit unlock.
+          python3 - <<'PY'
+          import os, urllib.request
+          req = urllib.request.Request(
+              os.environ["NEXUSQ_URL"] + "/v1/vault/lock",
+              data=b"",
+              headers={"Authorization": "Bearer " + os.environ["NEXUSQ_SERVER_TOKEN"]},
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=10) as response:
+              if response.status != 204:
+                  raise SystemExit("NEXUS-Q vault lock did not return 204")
+          PY
+          if fnox get NEXUSQ_REAL_ROUNDTRIP >/dev/null 2>&1; then
+            echo "secret unexpectedly resolved while the NEXUS-Q vault was locked"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os, urllib.request
+          body = json.dumps({"password": os.environ["VAULT_PASSWORD"]}).encode()
+          req = urllib.request.Request(
+              os.environ["NEXUSQ_URL"] + "/v1/vault/unlock",
+              data=body,
+              headers={
+                  "Authorization": "Bearer " + os.environ["NEXUSQ_SERVER_TOKEN"],
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=10) as response:
+              if response.status != 204:
+                  raise SystemExit("NEXUS-Q vault unlock did not return 204")
+          PY
+          fnox get NEXUSQ_REAL_ROUNDTRIP >/dev/null
+          echo "Real NEXUS-Q v4.1.2 fnox encrypt/decrypt round trip passed."

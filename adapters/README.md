@@ -20,4 +20,4 @@ The NEXUS-Q engine remains outside this repository and is not copied into adapte
 ## Current adapters
 
 - [OpenTofu](opentofu/README.md) — first adapter; experimental Go implementation.
-- [fnox](fnox/README.md) — next candidate; Lua plugin design under investigation.
+- [fnox](fnox/README.md) — second adapter; experimental Lua 5.4 provider with mock CLI tests and a dedicated real-service GitHub Actions workflow.
