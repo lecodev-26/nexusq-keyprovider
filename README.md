@@ -67,7 +67,7 @@ make build-opentofu
 make test-fnox
 ```
 
-Adapter-specific tests, scripts, docs, and release artifacts remain inside the adapter folder. GitHub requires workflow entrypoints to live in .github/workflows/. Each entrypoint is adapter-scoped: opentofu.yml remains manual-only, while fnox.yml runs the mock CLI suite and a real encrypt/decrypt round trip against NEXUS-Q v4.1.2 built from pinned source.
+Adapter-specific tests, scripts, docs, and release artifacts remain inside the adapter folder. GitHub requires workflow entrypoints to live in .github/workflows/. Each entrypoint is adapter-scoped: opentofu.yml and fnox.yml run automatically on relevant push and pull-request changes through path filters, and both retain workflow_dispatch. The fnox workflow runs the mock CLI suite and a real encrypt/decrypt round trip against NEXUS-Q v4.1.2 built from pinned source.
 
 ## Releases and artifacts
 

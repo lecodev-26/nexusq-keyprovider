@@ -125,7 +125,7 @@ The suite uses a local mock HTTP service and tests set/get, provider test, speci
 
 ## Remaining validation
 
-- **Passed:** [GitHub Actions run #2](https://github.com/lecodev-26/nexusq-keyprovider/actions/runs/41719182840), on branch `ci/fnox-real-service` at commit `f3361d11cf614a29a3779eb741a49f5b1f65abbc`. The workflow builds NEXUS-Q v4.1.2 from pinned commit `8735e5537bc687ee906ed68bdf119fc8956d9439`, runs the mock suite, and verifies a real local-service round trip, wrong-context rejection, locked-vault handling, and recovery after unlock. This is evidence for the tested Linux/Ubuntu workflow only, not a general compatibility or production-security claim.
+- **Passed:** [GitHub Actions run #7](https://github.com/lecodev-26/nexusq-keyprovider/actions/runs/41729178136), on branch `ci/fnox-real-service` at commit `a87c5f2949a5f85bd719f740b4e78595ad61785e`. The workflow builds NEXUS-Q v4.1.2 from pinned commit `8735e5537bc687ee906ed68bdf119fc8956d9439`, runs the mock suite, and verifies a real local-service round trip, wrong-context rejection, locked-vault handling, and recovery after unlock. This is evidence for the tested Linux/Ubuntu workflow only, not a general compatibility or production-security claim.
 - Confirm key status/rotation semantics and maximum practical secret size with the real NEXUS-Q envelope implementation.
 - Verify plugin behavior and supported curl versions on macOS and Windows environments used by fnox operators.
 - Confirm the upstream maintainers' preferred process for listing or documenting third-party Lua providers.
