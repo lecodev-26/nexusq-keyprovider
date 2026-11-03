@@ -11,7 +11,7 @@ NEXUS-Q itself is a separate cryptographic engine. This repository consumes its 
 | Adapter | Implementation | Status | Everything for this adapter |
 | --- | --- | --- | --- |
 | OpenTofu | Go · External Key Provider protocol v1 | Implemented · experimental | [adapters/opentofu/](adapters/opentofu/) |
-| fnox | Lua 5.4 · custom provider plugin | Implemented · experimental (mock suite plus real-service GitHub Actions test configured; first CI result pending) | [adapters/fnox/](adapters/fnox/) |
+| fnox | Lua 5.4 · custom provider plugin | Implemented · experimental (mock suite and real-service GitHub Actions integration passed on Ubuntu; see adapter validation notes) | [adapters/fnox/](adapters/fnox/) |
 
 Each adapter directory is self-contained: source, tests, fixtures, documentation, compatibility information, build/release scripts, and generated artifacts all live with that adapter. The root contains only repository-wide governance, the adapter catalog, GitHub-required workflow entrypoints (one per adapter), and cross-adapter planning.
 
