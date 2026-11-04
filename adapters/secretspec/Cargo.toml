@@ -1,0 +1,26 @@
+[package]
+name = "secretspec-provider-nexusq"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "SecretSpec external provider backed by NEXUS-Q envelope encryption"
+
+[[bin]]
+name = "secretspec-provider-nexusq"
+path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3"
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.22"
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+secretspec-ipc = "0.21.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "fs", "time"] }
+zeroize = "1"
+url = "2"

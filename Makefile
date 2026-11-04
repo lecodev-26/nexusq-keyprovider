@@ -1,4 +1,4 @@
-.PHONY: test test-opentofu test-fnox vet vet-opentofu fmt-check fmt-check-opentofu build build-opentofu release-build-opentofu
+.PHONY: test test-opentofu test-fnox test-secretspec vet vet-opentofu fmt-check fmt-check-opentofu fmt-check-secretspec build build-opentofu build-secretspec release-build-opentofu
 
 # Root convenience targets delegate to adapter-local toolchains and tests.
 test: test-opentofu
@@ -27,3 +27,12 @@ build-opentofu:
 
 release-build-opentofu:
 	bash adapters/opentofu/scripts/release-build.sh
+
+test-secretspec:
+	cd adapters/secretspec && cargo test --locked
+
+fmt-check-secretspec:
+	cd adapters/secretspec && cargo fmt --check
+
+build-secretspec:
+	cd adapters/secretspec && cargo build --locked --release

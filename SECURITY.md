@@ -6,6 +6,8 @@ This repository contains independent adapters that connect external tools to the
 
 - [OpenTofu adapter security policy and threat model](adapters/opentofu/docs/SECURITY.md)
 - [OpenTofu internal threat-model review](adapters/opentofu/docs/THREAT-MODEL-REVIEW.md)
+- [fnox adapter threat model](adapters/fnox/docs/SECURITY.md)
+- [SecretSpec adapter threat model](adapters/secretspec/docs/SECURITY.md)
 
 No adapter should be assumed production-ready, independently audited, certified, or suitable for regulated workloads unless that specific evidence is published for that adapter. CI success is not a security audit.
 
