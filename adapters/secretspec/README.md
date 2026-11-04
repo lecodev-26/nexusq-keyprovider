@@ -95,6 +95,6 @@ SecretSpec's external provider protocol currently carries values as UTF-8 string
 - Replaying an older envelope for the same address and context is not prevented.
 - The adapter does not yet implement a migration, key-rotation or recovery workflow.
 - Plaintext exists transiently in process memory and in the IPC/HTTP request buffers; Rust zeroization is applied to the configured bearer token and SecretSpec's IPC secret wrapper, but not every intermediate allocation.
-- The implementation has not yet been tested against a live NEXUS-Q service or the SecretSpec conformance suite.
+- A dedicated GitHub Actions run has completed a real end-to-end test against NEXUS-Q v4.1.2. The test launches the pinned service and exercises the adapter over the actual SecretSpec provider IPC protocol, including initialization, address resolution, encrypted write/read, presence checks, context isolation, deletion, and missing-record behavior. See [the successful SecretSpec adapter workflow run](https://github.com/lecodev-26/nexusq-keyprovider/actions/runs/41745106439). This validates that pinned service revision and CI environment; it is not a SecretSpec CLI registration test, a full upstream conformance run, or an independent security audit.
 
 See ROADMAP.md for validation milestones, SECURITY.md for the threat model, and docs/DESIGN.md for implementation decisions.

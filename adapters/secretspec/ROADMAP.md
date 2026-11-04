@@ -1,6 +1,6 @@
 # SecretSpec adapter roadmap
 
-**Current status: initial implementation · experimental.**
+**Current status: experimental · real-service IPC end-to-end validation passed on Ubuntu against NEXUS-Q v4.1.2.**
 
 ## Implemented
 
@@ -11,11 +11,11 @@
 - [x] Encrypted payload binding to adapter version, provider URI, configured context ID and exact SecretSpec address.
 - [x] HTTPS-only remote transport, loopback-only HTTP, no redirects and bounded request/response bodies.
 - [x] Unit tests, formatting checks and warning-free Clippy.
+- [x] Dedicated GitHub Actions workflow: real NEXUS-Q v4.1.2 service, actual provider IPC endpoint, encrypted set/get, exists, context isolation, delete and missing-record behavior ([run #41745106439](https://github.com/lecodev-26/nexusq-keyprovider/actions/runs/41745106439)).
 
 ## Validation still required
 
-- [ ] Run the dedicated GitHub Actions workflow against the pinned NEXUS-Q v4.1.2 service.
-- [ ] Exercise the adapter through the released SecretSpec CLI, including provider discovery/registration and set/get/delete.
+- [ ] Exercise the installed adapter through the released SecretSpec CLI, including provider discovery/registration and user-facing set/get/delete workflows.
 - [ ] Run the upstream SecretSpec provider IPC conformance cases applicable to the advertised capabilities.
 - [ ] Add tests for expiry, malformed/corrupt records, symlink attacks and concurrent writers.
 - [ ] Validate supported Linux, macOS and Windows filesystem behavior; implement platform-specific atomic replacement and ACL handling where required.

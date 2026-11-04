@@ -12,7 +12,7 @@ NEXUS-Q itself is a separate cryptographic engine. This repository consumes its 
 | --- | --- | --- | --- |
 | OpenTofu | Go · External Key Provider protocol v1 | Implemented · experimental | [adapters/opentofu/](adapters/opentofu/) |
 | fnox | Lua 5.4 · custom provider plugin | Implemented · experimental (mock suite and real-service GitHub Actions integration passed on Ubuntu; see adapter validation notes) | [adapters/fnox/](adapters/fnox/) |
-| SecretSpec | Rust · external provider IPC v1 | Initial implementation · experimental (unit tests; real-service validation pending) | [adapters/secretspec/](adapters/secretspec/) |
+| SecretSpec | Rust · external provider IPC v1 | Experimental; real-service IPC E2E passed against NEXUS-Q v4.1.2 on Ubuntu | [adapters/secretspec/](adapters/secretspec/) |
 
 Each adapter directory is self-contained: source, tests, fixtures, documentation, compatibility information, build/release scripts, and generated artifacts all live with that adapter. The root contains only repository-wide governance, the adapter catalog, GitHub-required workflow entrypoints (one per adapter), and cross-adapter planning.
 
@@ -94,7 +94,7 @@ See the [integration portfolio roadmap](ROADMAP.md) for the repository-level pla
 
 ## Security and maturity
 
-OpenTofu and fnox are experimental; SecretSpec is an initial experimental implementation pending real-service validation. Their CI results and compatibility claims apply only to the versions and environments recorded in their own documentation. No adapter should be described as independently audited, certified, or production-approved without published evidence.
+All adapters are experimental. SecretSpec has passed a real-service IPC end-to-end workflow against the pinned NEXUS-Q v4.1.2 revision; SecretSpec CLI registration/conformance validation and independent security review remain pending. Their CI results and compatibility claims apply only to the versions and environments recorded in their own documentation. No adapter should be described as independently audited, certified, or production-approved without published evidence.
 
 See [SECURITY.md](SECURITY.md) and the adapter-specific threat model before using an integration with valuable secrets or infrastructure state.
 

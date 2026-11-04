@@ -15,7 +15,7 @@ This roadmap tracks the shared repository and its independent adapters. Each ada
 | --- | --- | --- |
 | OpenTofu | Implemented · experimental | [OpenTofu roadmap](adapters/opentofu/ROADMAP.md) |
 | fnox | Implemented · experimental; mock CLI tests and real NEXUS-Q v4.1.2 integration workflow passed on Ubuntu (fnox 1.47.0) | [fnox adapter guide](adapters/fnox/README.md) |
-| SecretSpec | Initial experimental implementation; unit tests and Rust linting pass, real-service workflow prepared but not yet run | [SecretSpec adapter guide](adapters/secretspec/README.md) |
+| SecretSpec | Experimental; unit tests, Rust linting and real-service IPC E2E against NEXUS-Q v4.1.2 passed on Ubuntu; CLI registration and upstream conformance remain pending | [SecretSpec adapter guide](adapters/secretspec/README.md) |
 
 ## Future adapter intake
 
