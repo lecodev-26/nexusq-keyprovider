@@ -15,6 +15,7 @@ This roadmap tracks the shared repository and its independent adapters. Each ada
 | --- | --- | --- |
 | OpenTofu | Implemented · experimental | [OpenTofu roadmap](adapters/opentofu/ROADMAP.md) |
 | fnox | Implemented · experimental; mock CLI tests and real NEXUS-Q v4.1.2 integration workflow passed on Ubuntu (fnox 1.47.0) | [fnox adapter guide](adapters/fnox/README.md) |
+| SecretSpec | Experimental; unit tests, Rust linting and real-service IPC E2E against NEXUS-Q v4.1.2 passed on Ubuntu; CLI registration and upstream conformance remain pending | [SecretSpec adapter guide](adapters/secretspec/README.md) |
 
 ## Future adapter intake
 
@@ -32,5 +33,6 @@ Use adapter-scoped Git tags and GitHub Releases for new releases:
 
 - opentofu/vX.Y.Z (including prerelease suffixes such as opentofu/v0.1.0-rc.2)
 - fnox/vX.Y.Z (including prerelease suffixes such as fnox/v0.1.0-rc.1)
+- secretspec/vX.Y.Z
 
 Prefix downloadable assets with `nexusq-keyprovider-<adapter>-`. The historical OpenTofu tag v0.1.0-rc.1 and its published assets remain unchanged; the next OpenTofu release should use the new scoped convention. Release automation and asset naming are adapter-specific.

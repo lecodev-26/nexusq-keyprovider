@@ -21,3 +21,4 @@ The NEXUS-Q engine remains outside this repository and is not copied into adapte
 
 - [OpenTofu](opentofu/README.md) — first adapter; experimental Go implementation.
 - [fnox](fnox/README.md) — second adapter; experimental Lua 5.4 provider with mock CLI tests and a dedicated real-service GitHub Actions workflow.
+- [SecretSpec](secretspec/README.md) — third adapter; experimental Rust external provider using SecretSpec's IPC v1 protocol and a local ciphertext-only store; real-service IPC E2E against NEXUS-Q v4.1.2 passed in GitHub Actions.
